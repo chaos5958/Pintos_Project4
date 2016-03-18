@@ -1,0 +1,13 @@
+build/
+.bash_history
+.bashrc
+.bashrc.swp
+.viminfo
+.profile
+.bash_logout
+.gitconfig
+/.ssh
+*.txt
+pintos/src/tags
+**/.vim/
+.vimrc
