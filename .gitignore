@@ -8,6 +8,6 @@ build/
 .gitconfig
 /.ssh
 *.txt
-pintos/src/tags
+/src/tags
 **/.vim/
 .vimrc
