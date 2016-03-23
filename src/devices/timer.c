@@ -7,6 +7,7 @@
 #include "threads/io.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include <list.h>
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -18,7 +19,7 @@
 #endif
 
 /* List of processes sleeping */
-static struct sleep_list;
+static struct list sleep_list;
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
@@ -31,6 +32,8 @@ static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
+static bool less_sleep_ticks (const struct list_elem* a, const struct list_elem* b, void* aus); 
+static void wakeup_thread(void);
 
 /* Sets up the 8254 Programmable Interval Timer (PIT) to
    interrupt PIT_FREQ times per second, and registers the
@@ -100,21 +103,24 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-//  int64_t start = timer_ticks (); disable timer ticks
-
+  int64_t start = timer_ticks(); 
+  struct thread *t = thread_current();
+ 
   ASSERT (intr_get_level () == INTR_ON);
 
   //make thread sleep for TICKS timer ticks
-  thread_current()->sleep_ticks = ticks;
+  t->sleep_ticks = start + ticks;
+
   //add to sleep list
-  list_insert_ordered(&sleep_list, &t->timer_elem, less_wakeup, NULL);
+  list_insert_ordered(&sleep_list, &(t->elem) , less_sleep_ticks, NULL);
+
   //block current thread
   enum intr_level old_level = intr_disable();
   thread_block();
   intr_set_level(old_level);
-
-//  while (timer_elapsed (start) < ticks) turn off yielding while timer ticks
-//    thread_yield ();
+  
+  //o  while (timer_elapsed (start) < ticks) turn off yielding while timer ticks
+  //o  thread_yield ();
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -151,6 +157,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+  wakeup_thread (); 
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -215,4 +222,43 @@ real_time_sleep (int64_t num, int32_t denom)
       busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
     }
 }
+
+/* used by timer_sleep() */
+static bool less_sleep_ticks(const struct list_elem* a, const struct list_elem* b, void* aus UNUSED)
+{
+    const struct thread* a_ = list_entry(a, struct thread, elem);
+    const struct thread* b_ = list_entry(b, struct thread, elem);
+
+    if(a_->sleep_ticks < b_->sleep_ticks)
+	return true;
+
+    else
+	return false;
+}
+
+static void wakeup_thread(void)
+{
+    size_t size_sleep = list_size(&sleep_list);
+    struct thread* t;
+
+    while(size_sleep)
+    {
+	t = list_entry(list_front(&sleep_list), struct thread, elem);
+
+	if(t->sleep_ticks <= ticks)
+	{
+	    list_pop_front(&sleep_list);
+	    thread_unblock(t);
+	    size_sleep--;
+	}
+	else
+	    break;
+    }
+}
+
+    
+
+
+
+
 
