@@ -71,11 +71,6 @@ static void schedule (void);
 void schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
-/* Project 1 implemented function list */
-static struct thread* high_priority_thread (const struct list* ready_list);
-static bool less_priority (const struct list_elem *a, const struct list_elem *b, void *aux);
-
-
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -137,10 +132,6 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
-  
-  /* yield to highest thread */
-  if (t->priority < high_priority_thread (&ready_list)->priority)
-    thread_yield();
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
@@ -207,6 +198,10 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+
+  struct thread* curr = thread_current();
+  if (curr != NULL && curr -> priority < priority)
+      thread_yield();
 
   return tid;
 }
@@ -322,8 +317,14 @@ thread_yield (void)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
-{
-  thread_current ()->priority = new_priority;
+{   
+    struct thread* t = thread_current();
+    struct list_elem* el = list_min (&ready_list, more_priority, NULL);
+    struct thread* t_ = list_entry (el, struct thread, elem);
+    t->priority = new_priority;
+
+    if (t->priority < t_->priority)
+	thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -474,8 +475,10 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
-    return high_priority_thread (&ready_list);
+  else{
+    list_sort (&ready_list, more_priority, NULL);
+    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -564,22 +567,14 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
-
-/* return highest priority_thread */
-static struct thread* high_priority_thread (const struct list* ready_list)
-{
-    struct list_elem* elem = list_max (ready_list, less_priority, NULL);
-    
-    return list_entry (elem, struct thread, elem);
-}
 	
-/* compare function used in high_priority_thread */
-static bool less_priority (const struct list_elem *a, const struct list_elem *b, void *aux)
+/* compare function (priority incremental) */
+bool more_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
     const struct thread* a_ = list_entry (a, struct thread, elem);
     const struct thread* b_ = list_entry (b, struct thread, elem);
 
-    if (a_->priority < b_->priority)
+    if (a_->priority > b_->priority)
     	return true;
     else
     	return false;
