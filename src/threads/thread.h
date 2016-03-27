@@ -104,6 +104,9 @@ struct thread
     /* team10: original priority */
     int ori_priority;
 
+    /* team10: true if priority of this thread is donated by others */
+    bool donated;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -136,9 +139,11 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+void thread_yield_eq (struct thread *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+void thread_set_priority_target (int, struct thread*);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
