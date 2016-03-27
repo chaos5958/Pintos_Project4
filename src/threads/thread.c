@@ -169,6 +169,7 @@ thread_create (const char *name, int priority,
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
+  enum intr_level old_level;
   tid_t tid;
 
   ASSERT (function != NULL);
@@ -202,6 +203,14 @@ thread_create (const char *name, int priority,
   struct thread* curr = thread_current();
   if (curr != NULL && curr -> priority < priority)
       thread_yield();
+  
+  
+  if (curr == NULL){
+      old_level = intr_disable();
+      schedule ();
+      intr_set_level (old_level);
+  }
+
 
   return tid;
 }
@@ -242,6 +251,8 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+
+  //thread_yiedl();
 }
 
 /* Returns the name of the running thread. */
@@ -319,7 +330,7 @@ void
 thread_set_priority (int new_priority) 
 {   
     struct thread* t = thread_current();
-    struct list_elem* el = list_min (&ready_list, more_priority, NULL);
+    struct list_elem* el = list_max (&ready_list, more_priority, NULL);
     struct thread* t_ = list_entry (el, struct thread, elem);
     t->priority = new_priority;
 
@@ -450,6 +461,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  t->ori_priority = priority;
+  t->target_lock = NULL;
+  list_init(&(t->lock_list));
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

@@ -92,8 +92,17 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-    /* used by timer_alarm.c */
+    /* team10: used by timer_alarm.c */
     int64_t sleep_ticks;
+
+    /* team10: the lock which this thread want*/
+    struct lock* target_lock;
+
+    /* team10: lock list which this thread hold */
+    struct list lock_list; 
+
+    /* team10: original priority */
+    int ori_priority;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

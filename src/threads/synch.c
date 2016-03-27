@@ -32,6 +32,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+static void priority_donation (struct lock*);
+static void priority_recovery (struct lock*);
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -68,8 +70,9 @@ sema_down (struct semaphore *sema)
 
   old_level = intr_disable ();
   while (sema->value == 0) 
-    {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+    {   
+      list_insert_ordered (&(sema->waiters), &thread_current ()->elem, more_priority, NULL);
+      //list_push_back (&sema->waiters, &thread_current ()->elem);
       thread_block ();
     }
   sema->value--;
@@ -114,9 +117,15 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
+  if (!list_empty (&sema->waiters))
+  {
+    // team10: unblock the most highest priority thread
+    //list_sort (&(sema->waiters), more_priority, NULL);
+    
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
+  }
+
   sema->value++;
   intr_set_level (old_level);
 }
@@ -197,8 +206,24 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  enum intr_level old_level;
+
+  // team10: priority donation 
+  struct thread* curr = thread_current ();
+  curr -> target_lock = lock; 
+
+  old_level = intr_disable ();
+  priority_donation (lock);   
+  intr_set_level (old_level);
+  
   sema_down (&lock->semaphore);
+ 
   lock->holder = thread_current ();
+  curr -> target_lock = NULL;
+  list_push_front (&(curr->lock_list), &(lock->elem));  
+    
+  //o sema_down (&lock->semaphore);
+  //o lock->holder = thread_current ();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -232,6 +257,14 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+
+  enum intr_level old_level;
+
+  list_remove (&(lock->elem));
+
+  old_level = intr_disable();
+  priority_recovery (lock);
+  intr_set_level (old_level);
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
@@ -338,3 +371,63 @@ cond_broadcast (struct condition *cond, struct lock *lock)
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
 }
+
+static void priority_donation (struct lock* lk)
+{
+    struct thread* curr = thread_current();
+
+    ASSERT (curr != NULL);
+
+    if (lk == NULL){}
+    else
+    {
+	if (lk->holder == NULL){}
+	else
+        {
+	    if (curr->priority > (lk->holder)->priority){
+		(lk->holder)->priority = curr->priority;
+		priority_donation ((lk->holder)->target_lock);
+	    }
+	    else{}
+	}
+    }
+}
+
+static void priority_recovery (struct lock* lk)
+{
+    struct list_elem* el;
+    struct lock* lk_;
+    struct list waiters_;
+    struct thread* t;
+    int new_priority = -1;
+
+    if (lk == NULL){}
+    else{
+	if (lk->holder == NULL) {}
+	else{
+	    if (list_empty (&((lk->holder)->lock_list))){
+	 	(lk->holder)->priority = (lk->holder)->ori_priority;
+	    }
+	    else{
+		for (el = list_begin (&((lk->holder)->lock_list)) ; 
+			el != list_end (&((lk->holder)->lock_list)) ;
+			el = el->next){
+		    lk_ = list_entry (el, struct lock, elem);
+		    waiters_ = (lk_->semaphore).waiters;
+		    if (list_empty (&waiters_)){}
+		    else{
+			t = list_entry (list_front (&(waiters_)), struct thread, elem);
+			if (t->priority > new_priority)
+			    new_priority = t->priority;
+		    }
+		}
+		if (new_priority == -1)
+		    (lk->holder)->priority = (lk->holder)->ori_priority;
+		else
+		    (lk->holder)->priority = new_priority;
+	    }
+
+	}
+    }
+}
+
