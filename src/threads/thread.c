@@ -201,6 +201,7 @@ thread_create (const char *name, int priority,
   thread_unblock (t);
 
   struct thread* curr = thread_current();
+ 
   if (curr != NULL && curr -> priority < priority)
       thread_yield();
   
@@ -210,8 +211,6 @@ thread_create (const char *name, int priority,
       schedule ();
       intr_set_level (old_level);
   }
-
-
   return tid;
 }
 
@@ -252,7 +251,6 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
   intr_set_level (old_level);
 
-  //thread_yiedl();
 }
 
 /* Returns the name of the running thread. */
@@ -326,16 +324,23 @@ thread_yield (void)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
+/* processing...................... didn't consider priority donation */
 void
 thread_set_priority (int new_priority) 
 {   
     struct thread* t = thread_current();
-    struct list_elem* el = list_max (&ready_list, more_priority, NULL);
-    struct thread* t_ = list_entry (el, struct thread, elem);
+    enum intr_level old_level = intr_disable();
     t->priority = new_priority;
+    
+    if (list_empty (&ready_list)){}
+    else{   
+	struct list_elem* el = list_min (&ready_list, more_priority, NULL);
+       	struct thread* t_ = list_entry (el, struct thread, elem);
 
-    if (t->priority < t_->priority)
+  	 if (t->priority < t_->priority)
 	thread_yield();
+    }
+    intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -493,6 +498,7 @@ next_thread_to_run (void)
   else{
     list_sort (&ready_list, more_priority, NULL);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    //return list_entry (list_pop_back (&ready_list), struct thread, elem); 
   }
 }
 
@@ -583,13 +589,26 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 	
-/* compare function (priority incremental) */
+/* compare function (priority decremental) */
 bool more_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-    const struct thread* a_ = list_entry (a, struct thread, elem);
-    const struct thread* b_ = list_entry (b, struct thread, elem);
+    struct thread* a_ = list_entry (a, struct thread, elem);
+    struct thread* b_ = list_entry (b, struct thread, elem);
 
     if (a_->priority > b_->priority)
+    	return true;
+    else
+    	return false;
+
+}    
+
+/* compare function (priority incremental) */
+bool less_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+    struct thread* a_ = list_entry (a, struct thread, elem);
+    struct thread* b_ = list_entry (b, struct thread, elem);
+
+    if (a_->priority < b_->priority)
     	return true;
     else
     	return false;
