@@ -338,18 +338,20 @@ thread_yield_eq (struct thread *t)
 void
 thread_set_priority (int new_priority)
 {
-    thread_set_priority_target (new_priority, thread_current ());
+    thread_set_priority_ori (new_priority, thread_current ());
 }
 
 
+/* team10 thread_set_priority when priority donation */
 
-/* processing...................... didn't consider priority donation */
 void
 thread_set_priority_target (int new_priority, struct thread* target_t) 
 {   
 
-    // ASSERT (target_t->status == THREAD_BLOCKED);
+    //if (target_t->priority < new_priority)
+    target_t->priority = new_priority;
 
+/*
     if (target_t->donated)
 	target_t->priority = new_priority;
     else
@@ -357,6 +359,7 @@ thread_set_priority_target (int new_priority, struct thread* target_t)
     	target_t->priority = new_priority;
     	target_t->ori_priority = new_priority;
     }
+*/   
 
     if (target_t->status == THREAD_READY)
     {
@@ -367,6 +370,52 @@ thread_set_priority_target (int new_priority, struct thread* target_t)
     else if (target_t->status == THREAD_RUNNING && list_entry (list_begin (&ready_list), struct thread, elem)->priority > new_priority)
 	thread_yield_eq (target_t);
 }
+
+/* team10 thread_set_priority not priority donation */
+void
+thread_set_priority_ori (int new_priority, struct thread* target_t) 
+{   
+
+    /*
+    if (target_t->donated)
+	target_t->priority = new_priority;
+    else
+    {
+    	target_t->priority = new_priority;
+    	target_t->ori_priority = new_priority;
+    }
+    */
+    if (target_t == NULL)
+	return;
+     
+    if (target_t->priority > new_priority)
+    {
+	target_t->ori_priority = new_priority;
+    }
+    else
+    {
+	target_t->priority = new_priority;
+	target_t->ori_priority = new_priority;
+
+	if (target_t->status == THREAD_BLOCKED && target_t->target_lock != NULL)
+	    priority_donation (target_t->target_lock);
+    }
+    
+    //target_t->ori_priority = new_priority;
+
+    if (target_t->status == THREAD_READY)
+    {
+	list_remove (&target_t->elem);
+	list_insert_ordered (&ready_list, &target_t->elem, more_priority, NULL);
+    }
+
+    else if (target_t->status == THREAD_RUNNING && list_entry (list_begin (&ready_list), struct thread, elem)->priority > new_priority)
+	thread_yield_eq (target_t);
+}
+
+
+
+
 
 /* Returns the current thread's priority. */
 int

@@ -144,6 +144,8 @@ void thread_yield_eq (struct thread *);
 int thread_get_priority (void);
 void thread_set_priority (int);
 void thread_set_priority_target (int, struct thread*);
+void
+thread_set_priority_ori (int, struct thread*); 
 
 int thread_get_nice (void);
 void thread_set_nice (int);

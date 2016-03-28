@@ -4,6 +4,9 @@
 #include <list.h>
 #include <stdbool.h>
 
+// team10 fuction
+void priority_donation (struct lock*);
+
 /* A counting semaphore. */
 struct semaphore 
   {
