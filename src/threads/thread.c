@@ -241,6 +241,10 @@ thread_unblock (struct thread *t)
   //list_push_back (&ready_list, &t->elem);
   list_insert_ordered (&ready_list, &t->elem, more_priority, NULL);
   t->status = THREAD_READY;
+  
+  //if (thread_current ()->status == THREAD_RUNNING && t->priority > thread_current()->priority)
+  // thread_yield ();
+  
   intr_set_level (old_level);
 
 }
@@ -338,7 +342,46 @@ thread_yield_eq (struct thread *t)
 void
 thread_set_priority (int new_priority)
 {
-    thread_set_priority_ori (new_priority, thread_current ());
+    struct thread* curr = thread_current();
+    
+    if (curr->priority != curr->ori_priority )
+    {
+	curr->ori_priority = new_priority;
+	if (curr->ori_priority > curr->priority)
+	    curr->priority = curr->ori_priority;
+
+    }
+    else
+    {
+	curr->ori_priority = new_priority;
+	curr->priority = new_priority;
+    }
+
+    list_sort(&ready_list, more_priority, NULL);
+
+    if (curr->status == THREAD_BLOCKED && curr->target_lock != NULL)
+    {	
+     	priority_donation (curr->target_lock);
+    }
+    else if (curr->status == THREAD_READY)
+    {
+	list_remove (&curr->elem);
+	list_insert_ordered (&ready_list, &curr->elem, more_priority, NULL);
+    }
+    else if (curr->status == THREAD_RUNNING && !list_empty(&ready_list) && list_entry (list_front (&ready_list), struct thread, elem)->priority > new_priority)
+	thread_yield ();
+
+   
+    //thread_set_priority_ori (new_priority, thread_current ());
+    /*
+    struct thread* t = thread_current ();
+    struct list_elem* el = list_max (&ready_list, less_priority, NULL);
+    struct thread* t_ = list_entry (el, struct thread, elem);
+    t->priority = new_priority;
+
+    if (t->priority < t_->priority)
+	thread_yield();
+    */
 }
 
 
@@ -385,6 +428,15 @@ thread_set_priority_ori (int new_priority, struct thread* target_t)
     	target_t->ori_priority = new_priority;
     }
     */
+    /*
+    struct thread* t = thread_current ();
+    struct list_elem* el = list_max (&ready_list, less_priority, NULL);
+    struct thread* t_ = list_entry (el, struct thread, elem);
+    t->priority = new_priority;
+
+    if (t->priority < t_->priority)
+	thread_yield();
+    */
     if (target_t == NULL)
 	return;
      
@@ -401,7 +453,7 @@ thread_set_priority_ori (int new_priority, struct thread* target_t)
 	    priority_donation (target_t->target_lock);
     }
     
-    //target_t->ori_priority = new_priority;
+    list_sort(&ready_list, more_priority, NULL);
 
     if (target_t->status == THREAD_READY)
     {
@@ -410,7 +462,7 @@ thread_set_priority_ori (int new_priority, struct thread* target_t)
     }
 
     else if (target_t->status == THREAD_RUNNING && list_entry (list_begin (&ready_list), struct thread, elem)->priority > new_priority)
-	thread_yield_eq (target_t);
+	thread_yield ();
 }
 
 
