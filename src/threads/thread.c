@@ -200,7 +200,7 @@ thread_create (const char *name, int priority,
   thread_unblock (t);
 
   if (priority > thread_current ()->priority)
-     thread_yield_eq (thread_current()); 
+     thread_yield (); 
  
   return tid;
 }
@@ -321,23 +321,6 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
-void
-thread_yield_eq (struct thread *t) 
-{
-  enum intr_level old_level;
-  
-  ASSERT (!intr_context ());
-
-  old_level = intr_disable ();
-  if (t != idle_thread) 
-     list_insert_ordered (&ready_list, &t->elem, more_priority, NULL);
-      //list_push_back (&ready_list, &curr->elem);
-   
-  t->status = THREAD_READY;
-  schedule ();
-  intr_set_level (old_level);
-}
-
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority)
@@ -390,28 +373,13 @@ thread_set_priority (int new_priority)
 void
 thread_set_priority_target (int new_priority, struct thread* target_t) 
 {   
-
-    //if (target_t->priority < new_priority)
     target_t->priority = new_priority;
-
-/*
-    if (target_t->donated)
-	target_t->priority = new_priority;
-    else
-    {
-    	target_t->priority = new_priority;
-    	target_t->ori_priority = new_priority;
-    }
-*/   
 
     if (target_t->status == THREAD_READY)
     {
 	list_remove (&target_t->elem);
 	list_insert_ordered (&ready_list, &target_t->elem, more_priority, NULL);
     }
-
-    else if (target_t->status == THREAD_RUNNING && list_entry (list_begin (&ready_list), struct thread, elem)->priority > new_priority)
-	thread_yield_eq (target_t);
 }
 
 /* team10 thread_set_priority not priority donation */
@@ -741,6 +709,23 @@ bool less_priority (const struct list_elem *a, const struct list_elem *b, void *
     	return false;
 
 }    
+
+void thread_yield_custom(void)
+{
+    ASSERT(!intr_context());
+
+    if (list_empty (&ready_list))
+	return ;
+
+    // list_sort (&ready_list, more_priority, NULL);
+    struct thread *t = list_entry (list_front (&ready_list), struct thread, elem);
+    
+    if (thread_current()->priority < t->priority)
+	thread_yield ();
+}
+
+
+
 
 
 

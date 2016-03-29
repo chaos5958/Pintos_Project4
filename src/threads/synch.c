@@ -115,8 +115,7 @@ void
 sema_up (struct semaphore *sema) 
 {
   enum intr_level old_level;
-  struct thread* t;
-  struct thread* curr = thread_current();
+  struct thread* t = NULL;
 
   ASSERT (sema != NULL);
 
@@ -130,10 +129,10 @@ sema_up (struct semaphore *sema)
     thread_unblock (t);
   }
   sema->value++;
-  
-  // team10: DISCARD || error part
-  //if (t!= NULL && t->priority > curr->priority)
-  //  	thread_yield_eq(curr);
+
+  // team10: if unblock thread priority is higher than current, execute thread_yield  
+  if (t != NULL && !intr_context())
+      thread_yield_custom();
 
   intr_set_level (old_level);
 }
@@ -215,10 +214,8 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-    
-  struct thread* curr;
-  
-  curr = thread_current ();
+
+  struct thread* curr = thread_current ();
   curr->target_lock = lock; 
 
   priority_donation (lock);   
@@ -271,12 +268,13 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  struct thread* t = thread_current();
-
   lock->holder = NULL;
+  priority_recovery (lock);
+
   sema_up (&lock->semaphore);
 
-  priority_recovery(lock); 
+  //list_remove (&lock->elem);
+  //lock->lock_priority = PRI_MIN-1;
 }
 
 /* Returns true if the current thread holds LOCK, false
