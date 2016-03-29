@@ -199,8 +199,9 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  // team10: if created thread priority is higher than current, execute thread_yield
   if (priority > thread_current ()->priority)
-     thread_yield_eq (thread_current()); 
+     thread_yield (); 
  
   return tid;
 }
@@ -238,9 +239,10 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  //list_push_back (&ready_list, &t->elem);
+  //o list_push_back (&ready_list, &t->elem);
+  // team10: insert it to the ready list regarding priority (high comes first)
   list_insert_ordered (&ready_list, &t->elem, more_priority, NULL);
-  t->status = THREAD_READY;
+  t->status = THREAD_READY; 
   intr_set_level (old_level);
 
 }
@@ -309,113 +311,66 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (curr != idle_thread) 
+     // team10: insert it to the ready list regarding priority (high comes first)
      list_insert_ordered (&ready_list, &curr->elem, more_priority, NULL);
-      //list_push_back (&ready_list, &curr->elem);
+   
+     //o list_push_back (&ready_list, &curr->elem);
    
   curr->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
 }
 
-void
-thread_yield_eq (struct thread *t) 
-{
-  enum intr_level old_level;
-  
-  ASSERT (!intr_context ());
-
-  old_level = intr_disable ();
-  if (t != idle_thread) 
-     list_insert_ordered (&ready_list, &t->elem, more_priority, NULL);
-      //list_push_back (&ready_list, &curr->elem);
-   
-  t->status = THREAD_READY;
-  schedule ();
-  intr_set_level (old_level);
-}
-
 /* Sets the current thread's priority to NEW_PRIORITY. */
+/* (+modify) tema10: set current thread priority considering lots of  syncronizaiton issue 
+ */
 void
 thread_set_priority (int new_priority)
 {
-    thread_set_priority_ori (new_priority, thread_current ());
+    struct thread* curr = thread_current();
+    
+    if (curr->priority != curr->ori_priority )
+    {
+	curr->ori_priority = new_priority;
+	if (curr->ori_priority > curr->priority)
+	    curr->priority = curr->ori_priority;
+
+    }
+    else
+    {
+	curr->ori_priority = new_priority;
+	curr->priority = new_priority;
+    }
+
+    list_sort(&ready_list, more_priority, NULL);
+
+    if (curr->status == THREAD_BLOCKED && curr->target_lock != NULL)
+    {	
+     	priority_donation (curr->target_lock);
+    }
+    else if (curr->status == THREAD_READY)
+    {
+	list_remove (&curr->elem);
+	list_insert_ordered (&ready_list, &curr->elem, more_priority, NULL);
+    }
+    else if (curr->status == THREAD_RUNNING && !list_empty(&ready_list) && list_entry (list_front (&ready_list), struct thread, elem)->priority > new_priority)
+	thread_yield ();
+   
 }
 
 
-/* team10 thread_set_priority when priority donation */
-
+/* team10i: thread_set_priority using inside priority donation */
 void
 thread_set_priority_target (int new_priority, struct thread* target_t) 
 {   
-
-    //if (target_t->priority < new_priority)
     target_t->priority = new_priority;
 
-/*
-    if (target_t->donated)
-	target_t->priority = new_priority;
-    else
-    {
-    	target_t->priority = new_priority;
-    	target_t->ori_priority = new_priority;
-    }
-*/   
-
     if (target_t->status == THREAD_READY)
     {
 	list_remove (&target_t->elem);
 	list_insert_ordered (&ready_list, &target_t->elem, more_priority, NULL);
     }
-
-    else if (target_t->status == THREAD_RUNNING && list_entry (list_begin (&ready_list), struct thread, elem)->priority > new_priority)
-	thread_yield_eq (target_t);
 }
-
-/* team10 thread_set_priority not priority donation */
-void
-thread_set_priority_ori (int new_priority, struct thread* target_t) 
-{   
-
-    /*
-    if (target_t->donated)
-	target_t->priority = new_priority;
-    else
-    {
-    	target_t->priority = new_priority;
-    	target_t->ori_priority = new_priority;
-    }
-    */
-    if (target_t == NULL)
-	return;
-     
-    if (target_t->priority > new_priority)
-    {
-	target_t->ori_priority = new_priority;
-    }
-    else
-    {
-	target_t->priority = new_priority;
-	target_t->ori_priority = new_priority;
-
-	if (target_t->status == THREAD_BLOCKED && target_t->target_lock != NULL)
-	    priority_donation (target_t->target_lock);
-    }
-    
-    //target_t->ori_priority = new_priority;
-
-    if (target_t->status == THREAD_READY)
-    {
-	list_remove (&target_t->elem);
-	list_insert_ordered (&ready_list, &target_t->elem, more_priority, NULL);
-    }
-
-    else if (target_t->status == THREAD_RUNNING && list_entry (list_begin (&ready_list), struct thread, elem)->priority > new_priority)
-	thread_yield_eq (target_t);
-}
-
-
-
-
 
 /* Returns the current thread's priority. */
 int
@@ -527,6 +482,7 @@ is_thread (struct thread *t)
 
 /* Does basic initialization of T as a blocked thread named
    NAME. */
+/* (+modify) team10: init new thread variable */
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
@@ -541,10 +497,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
+  // team10: new init variable 
   t->ori_priority = priority;
   t->target_lock = NULL;
   list_init(&(t->lock_list));
-  t->donated = false;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -571,9 +527,10 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else{
+    // team10: run the hightest priority thread in ready_list
     list_sort (&ready_list, more_priority, NULL);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
-    //return list_entry (list_pop_back (&ready_list), struct thread, elem); 
+    //o return list_entry (list_pop_back (&ready_list), struct thread, elem); 
   }
 }
 
@@ -664,7 +621,7 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 	
-/* compare function (priority decremental) */
+/* team10:  compare function (priority decremental) */
 bool more_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
     struct thread* a_ = list_entry (a, struct thread, elem);
@@ -677,7 +634,7 @@ bool more_priority (const struct list_elem *a, const struct list_elem *b, void *
 
 }    
 
-/* compare function (priority incremental) */
+/* team10: compare function (priority incremental) */
 bool less_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
     struct thread* a_ = list_entry (a, struct thread, elem);
@@ -689,6 +646,25 @@ bool less_priority (const struct list_elem *a, const struct list_elem *b, void *
     	return false;
 
 }    
+
+/* team10: execute thread_yield when ready_list is not empty
+ * 	   used in synch.c
+ */
+void thread_yield_custom(void)
+{
+    ASSERT(!intr_context());
+
+    if (list_empty (&ready_list))
+	return ;
+
+    struct thread *t = list_entry (list_front (&ready_list), struct thread, elem);
+    
+    if (thread_current()->priority < t->priority)
+	thread_yield ();
+}
+
+
+
 
 
 

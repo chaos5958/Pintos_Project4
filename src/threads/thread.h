@@ -104,9 +104,6 @@ struct thread
     /* team10: original priority */
     int ori_priority;
 
-    /* team10: true if priority of this thread is donated by others */
-    bool donated;
-
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -119,7 +116,19 @@ struct thread
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
+
 extern bool thread_mlfqs;
+
+/* =======================team10 add function list=======================
+   explanation of each functions is located before definition
+
+   1. thread_set_priority_target
+   2. more_priority
+   3. less_priority
+   4. thread_yield_custom
+
+   ======================================================================
+*/
 
 void thread_init (void);
 void thread_start (void);
@@ -139,21 +148,20 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
-void thread_yield_eq (struct thread *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+
 void thread_set_priority_target (int, struct thread*);
-void
-thread_set_priority_ori (int, struct thread*); 
 
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+
 bool more_priority(const struct list_elem*, const struct list_elem*, void *aux UNUSED);
 bool less_priority(const struct list_elem*, const struct list_elem*, void *aux UNUSED);
-
+void thread_yield_custom (void);
 
 #endif /* threads/thread.h */
