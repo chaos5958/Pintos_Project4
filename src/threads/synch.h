@@ -4,7 +4,7 @@
 #include <list.h>
 #include <stdbool.h>
 
-// team10 fuction
+// team10 added fuctions
 void priority_donation (struct lock*);
 
 /* A counting semaphore. */
@@ -25,9 +25,9 @@ struct lock
   {
     struct thread *holder;      /* Thread holding lock (for debugging). */
     struct semaphore semaphore; /* Binary semaphore controlling access. */
-    struct list_elem elem; /* team10: lock elem */
+    struct list_elem elem; /* team10: list_elem in lock used in thread.lock_list */
 
-    int lock_priority;
+    int lock_priority; /* team10: priority of lock defined by the most highest priority thread waiting  for this lock */
 
   };
 

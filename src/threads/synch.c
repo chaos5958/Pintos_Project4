@@ -32,6 +32,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+// team10 added functions 
 static void priority_recovery (struct lock*);
 static bool more_lock_priority (const struct list_elem* a, const struct list_elem *b, void *aux UNUSED);
 static bool more_cond_priority (const struct list_elem* a, const struct list_elem *b, void *aus UNUSED);
@@ -73,7 +74,6 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {   
-      // list_insert_ordered (&sema->waiters, &thread_current ()->elem, more_priority, NULL);
       list_push_back (&sema->waiters, &thread_current ()->elem);
       thread_block ();
     }
@@ -111,6 +111,7 @@ sema_try_down (struct semaphore *sema)
    and wakes up one thread of those waiting for SEMA, if any.
 
    This function may be called from an interrupt handler. */
+/* (+modified) team10 */
 void
 sema_up (struct semaphore *sema) 
 {
@@ -189,6 +190,7 @@ sema_test_helper (void *sema_)
    acquire and release it.  When these restrictions prove
    onerous, it's a good sign that a semaphore should be used,
    instead of a lock. */
+/* (+modified) tema10 */
 void
 lock_init (struct lock *lock)
 {
@@ -197,6 +199,7 @@ lock_init (struct lock *lock)
   lock->holder = NULL;
   sema_init (&lock->semaphore, 1);
 
+  // team10 lock_priority init 
   lock->lock_priority = PRI_MIN -1;
 }
 
@@ -208,6 +211,7 @@ lock_init (struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+/* (+modified) tema10 */
 void
 lock_acquire (struct lock *lock)
 {
@@ -261,7 +265,7 @@ lock_try_acquire (struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
    handler. */
-
+/* (+modified) tema10 */
 void
 lock_release (struct lock *lock) 
 {
@@ -272,9 +276,6 @@ lock_release (struct lock *lock)
   priority_recovery (lock);
 
   sema_up (&lock->semaphore);
-
-  //list_remove (&lock->elem);
-  //lock->lock_priority = PRI_MIN-1;
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -293,7 +294,7 @@ struct semaphore_elem
   {
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
-    int priority;
+    int priority; /* team10 thread priority for the condition */ 
   };
 
 /* Initializes condition variable COND.  A condition variable
@@ -327,6 +328,7 @@ cond_init (struct condition *cond)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+/* (+modifiy) team10 */
 void
 cond_wait (struct condition *cond, struct lock *lock) 
 {
@@ -341,7 +343,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   
   sema_init (&waiter.semaphore, 0);
   waiter.priority = curr->priority;
-
+  
   list_insert_ordered (&cond->waiters, &waiter.elem, more_cond_priority, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
@@ -384,12 +386,11 @@ cond_broadcast (struct condition *cond, struct lock *lock)
     cond_signal (cond, lock);
 }
 
+/* team10 priority donation */
 void priority_donation (struct lock* lk)
 {
     struct thread* curr = thread_current();
-
-    ASSERT (curr != NULL);
-     
+ 
     if (!list_empty (&(lk->semaphore).waiters))
 	list_sort (&(lk->semaphore).waiters, more_priority, NULL);
      
@@ -405,7 +406,6 @@ void priority_donation (struct lock* lk)
     if (lk->holder->priority > curr->priority)
 	return;
 	
-    (lk->holder)->donated = true;
 
     if ((lk->holder)->priority < curr->priority)
 	thread_set_priority_target (curr->priority, lk->holder);
@@ -416,29 +416,35 @@ void priority_donation (struct lock* lk)
     }
 }
 
+/* team 10 priority_recovery */
 static void priority_recovery (struct lock* lk)
 {
-   struct thread* holder_t = thread_current();
+   struct thread* curr = thread_current();
+
+   ASSERT (lk->holder == NULL);
+
+   if (lk == NULL)
+       return;
 
    list_remove (&lk->elem);
    lk->lock_priority = PRI_MIN-1;
  
-   if (list_empty (&holder_t->lock_list))
+   if (list_empty (&curr->lock_list))
    {
-       holder_t->donated = false;
-       thread_set_priority_target (holder_t->ori_priority, holder_t);
+       thread_set_priority_target (curr->ori_priority, curr);
    }
    else
    {
-       struct lock* lk_ = list_entry (list_front (&holder_t->lock_list), struct lock, elem);
+       struct lock* lk_ = list_entry (list_front (&curr->lock_list), struct lock, elem);
       
        if (lk_->lock_priority == PRI_MIN-1)
-	  thread_set_priority_target (holder_t->ori_priority, holder_t);
+	  thread_set_priority_target (curr->ori_priority, curr);
        else
-	  thread_set_priority_target (lk_->lock_priority, holder_t);
+	  thread_set_priority_target (lk_->lock_priority, curr);
    }    
 }
 
+/* team10 compare function (lock_priority decremental) */
 static bool more_lock_priority (const struct list_elem* a, const struct list_elem *b, void *aux UNUSED)
 {
     struct lock *lk_1 = list_entry (a, struct lock, elem);
@@ -450,6 +456,7 @@ static bool more_lock_priority (const struct list_elem* a, const struct list_ele
 	return false;
 }
 
+/* team10 compare function (semphore_elem priority decremental) */ 
 static bool more_cond_priority (const struct list_elem* a, const struct list_elem *b, void *aux UNUSED)
 {
     struct semaphore_elem *el_1 = list_entry (a, struct semaphore_elem, elem);
