@@ -24,6 +24,27 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+#define NICE_MIN -20
+#define NICE_DEFAULT 0
+#define NICE_MAX 20
+
+#define P 17
+#define Q 14
+#define FRACTION 1<<Q
+
+//#define FRACTION 16384
+
+#define CONVERT_FP(N) (N)*(FRACTION)
+#define CONVERT_INT_ZERO(X) (X)/(FRACTION)
+#define CONVERT_INT_NEAR(X) (X) >= 0 ? ((X)+(FRACTION)/2)/(FRACTION) : ((X)-(FRACTION)/2)/(FRACTION)
+#define ADD_XN(X, N) (X) + (N)*(FRACTION)
+#define SUB_XN(X, N) (X) - (N)*(FRACTION)
+#define SUB_NX(N, X) (N)*(FRACTION) - (X)
+#define MULTI_XX(X, Y) (((int64_t)(X))*(Y))/(FRACTION)
+#define MULTI_XN(X, N) (X)*(N)
+#define DIV_XX(X, Y) (((int64_t)(X))*(FRACTION))/(Y)
+#define DIV_XN(X, N) (X)/(N)
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -87,8 +108,9 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-        
+    int priority; 		        /* Priority. */
+    int nice; 				/* team10: nice */    
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -104,6 +126,10 @@ struct thread
     /* team10: original priority */
     int ori_priority;
 
+    int recent_cpu;
+
+    struct list_elem elem_cpu;
+     
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -163,5 +189,11 @@ int thread_get_load_avg (void);
 bool more_priority(const struct list_elem*, const struct list_elem*, void *aux UNUSED);
 bool less_priority(const struct list_elem*, const struct list_elem*, void *aux UNUSED);
 void thread_yield_custom (void);
+void update_load_avg (void);
+void update_recent_cpu (struct thread*);
+void update_recent_cpu_all (void);
+void update_priority (void);
+void is_idle_thread (struct thread*);
+
 
 #endif /* threads/thread.h */

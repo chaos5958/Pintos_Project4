@@ -7,6 +7,7 @@
 #include "threads/io.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "threads/fixed-point.h"
 #include <list.h>
   
 /* See [8254] for hardware details of the 8254 timer chip. */
@@ -158,6 +159,23 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
   wakeup_thread (); 
+
+  if (thread_mlfqs)
+  {
+      struct thread* curr = thread_current ();
+      
+      is_idle_thread(curr);
+      	 // curr->recent_cpu = ADD_XN (curr->recent_cpu, 1);      
+
+      if (ticks % TIMER_FREQ == 0)
+      {
+	  update_load_avg();
+    	  update_recent_cpu_all();
+      }
+      
+      if (ticks % 4 == 2)
+	  update_priority();
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -237,7 +255,7 @@ static bool less_sleep_ticks(const struct list_elem* a, const struct list_elem* 
 }
 
 static void wakeup_thread(void)
-{
+{           
     size_t size_sleep = list_size(&sleep_list);
     struct thread* t;
 
