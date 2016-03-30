@@ -33,18 +33,18 @@ typedef int tid_t;
 #define FRACTION (1<<Q)
 
 //#define FRACTION 16384
-/*
-#define CONVERT_FP(N) (N)*(FRACTION)
-#define CONVERT_INT_ZERO(X) (X)/(FRACTION)
-#define CONVERT_INT_NEAR(X) (X) >= 0 ? ((X)+(FRACTION)/2)/(FRACTION) : ((X)-(FRACTION)/2)/(FRACTION)
-#define ADD_XN(X, N) (X) + (N)*(FRACTION)
-#define SUB_XN(X, N) (X) - (N)*(FRACTION)
-#define SUB_NX(N, X) (N)*(FRACTION) - (X)
-#define MULTI_XX(X, Y) (((int64_t)(X))*(Y))/(FRACTION)
-#define MULTI_XN(X, N) (X)*(N)
-#define DIV_XX(X, Y) (((int64_t)(X))*(FRACTION))/(Y)
-#define DIV_XN(X, N) (X)/(N)
-*/
+
+#define CONVERT_FP(N) ((N)*(FRACTION))
+#define CONVERT_INT_ZERO(X) ((X)/(FRACTION))
+#define CONVERT_INT_NEAR(X) ((X) >= 0 ? ((X)+(FRACTION)/2)/(FRACTION) : ((X)-(FRACTION)/2)/(FRACTION))
+#define ADD_XN(X, N) ((X) + (N)*(FRACTION))
+#define SUB_XN(X, N) ((X) - (N)*(FRACTION))
+#define SUB_NX(N, X) ((N)*(FRACTION) - (X))
+#define MULTI_XX(X, Y) ((((int64_t)(X))*(Y))/(FRACTION))
+#define MULTI_XN(X, N) ((X)*(N))
+#define DIV_XX(X, Y) ((((int64_t)(X))*(FRACTION))/(Y))
+#define DIV_XN(X, N) ((X)/(N))
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The

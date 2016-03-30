@@ -78,11 +78,11 @@ static void schedule (void);
 void schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
-static int CONVERT_INT_NEAR(int n);
-static int CONVERT_FP(int n);
-static int ADD_XN(int n1, int n2);
-static int MULTI_XX(int n1, int n2);
-static int DIV_XX(int n1, int n2);
+//static int CONVERT_INT_NEAR(int n);
+//static int CONVERT_FP(int n);
+//static int ADD_XN(int n1, int n2);
+//static int MULTI_XX(int n1, int n2);
+//static int DIV_XX(int n1, int n2);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -538,7 +538,7 @@ void update_priority_all (void)
 	}
     }
 
-    list_sort (&ready_list, more_priority, NULL);
+    //list_sort (&ready_list, more_priority, NULL);
 
     intr_set_level (old_level);
 }
@@ -832,7 +832,7 @@ void thread_yield_timer (void)
    if (curr->priority < t->priority)
        intr_yield_on_return ();
 }
-
+/*
 static int CONVERT_INT_NEAR(int n)
 {
     if (n >0) 
@@ -860,7 +860,7 @@ static int DIV_XX(int n1, int n2)
 {
     return (int64_t)n1 * FRACTION / n2;
 }
-
+*/
 
 
 
