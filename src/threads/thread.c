@@ -11,7 +11,6 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-//#include "threads/fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -77,12 +76,6 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-
-//static int CONVERT_INT_NEAR(int n);
-//static int CONVERT_FP(int n);
-//static int ADD_XN(int n1, int n2);
-//static int MULTI_XX(int n1, int n2);
-//static int DIV_XX(int n1, int n2);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -273,7 +266,6 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  //o list_push_back (&ready_list, &t->elem);
   // team10: insert it to the ready list regarding priority (high comes first)
   list_insert_ordered (&ready_list, &t->elem, more_priority, NULL);
   t->status = THREAD_READY; 
@@ -353,7 +345,6 @@ thread_yield (void)
      // team10: insert it to the ready list regarding priority (high comes first)
      list_insert_ordered (&ready_list, &curr->elem, more_priority, NULL);
    
-     //o list_push_back (&ready_list, &curr->elem);
    
   curr->status = THREAD_READY;
   schedule ();
@@ -538,8 +529,6 @@ void update_priority_all (void)
 	}
     }
 
-    //list_sort (&ready_list, more_priority, NULL);
-
     intr_set_level (old_level);
 }
 
@@ -676,7 +665,6 @@ next_thread_to_run (void)
     // team10: run the hightest priority thread in ready_list
     list_sort (&ready_list, more_priority, NULL);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
-    //o return list_entry (list_pop_back (&ready_list), struct thread, elem); 
   }
 }
 
@@ -832,35 +820,6 @@ void thread_yield_timer (void)
    if (curr->priority < t->priority)
        intr_yield_on_return ();
 }
-/*
-static int CONVERT_INT_NEAR(int n)
-{
-    if (n >0) 
-	return (n + FRACTION/2)/(FRACTION);
-    else
-	return (n - FRACTION/2)/(FRACTION);
-}
-
-static int CONVERT_FP(int n)
-{
-    return n * FRACTION;
-}
-
-static int ADD_XN(int n1, int n2)
-{
-    return n1 + n2 * FRACTION;
-}
-
-static int MULTI_XX(int n1, int n2)
-{
-    return (int64_t)n1 * n2 / FRACTION;
-}
-
-static int DIV_XX(int n1, int n2)
-{
-    return (int64_t)n1 * FRACTION / n2;
-}
-*/
 
 
 
