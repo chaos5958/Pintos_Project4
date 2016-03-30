@@ -189,11 +189,12 @@ int thread_get_load_avg (void);
 bool more_priority(const struct list_elem*, const struct list_elem*, void *aux UNUSED);
 bool less_priority(const struct list_elem*, const struct list_elem*, void *aux UNUSED);
 void thread_yield_custom (void);
+void thread_yield_timer (void);
 void update_load_avg (void);
 void update_recent_cpu (struct thread*);
 void update_recent_cpu_all (void);
-void update_priority (void);
+void update_priority_all (void);
+void update_priority (struct thread*);
 void is_idle_thread (struct thread*);
-
 
 #endif /* threads/thread.h */

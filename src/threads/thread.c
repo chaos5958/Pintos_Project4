@@ -212,14 +212,18 @@ thread_create (const char *name, int priority,
 
   // team1
   if (thread_mlfqs)
+  {
       list_push_back (&remain_list, &t->elem_cpu);
+      update_priority (t);
+  }
 
   /* Add to run queue. */
   thread_unblock (t);
 
   // team10: if created thread priority is higher than current, execute thread_yield
   if (priority > thread_current ()->priority)
-     thread_yield (); 
+     thread_yield ();
+ 
  
   return tid;
 }
@@ -413,7 +417,7 @@ thread_set_nice (int nice UNUSED)
     ASSERT (nice > NICE_MIN-1 && nice < NICE_MAX+1);
 
     curr->nice = nice;
-    update_priority();
+    update_priority(curr);
 
     if (list_empty(&ready_list)){}
     else{
@@ -452,18 +456,23 @@ thread_get_recent_cpu (void)
 void update_load_avg (void)
 {
     struct thread* curr = thread_current();
+
     int ready_threads = list_size (&ready_list);
 
     if (curr->status == THREAD_RUNNING && curr != idle_thread)
 	ready_threads++;
 
     int term_1 = (CONVERT_FP(59)/60);
-    int term_2 = (CONVERT_FP(1)/60);   
+    int term_2 = (CONVERT_FP(1)/60); 
+
     load_avg = MULTI_XX(term_1, load_avg) + term_2 * ready_threads;
 }
 
+
 void update_recent_cpu (struct thread* t)
 { 
+    if (t == idle_thread)
+	return ;
     int term_1= ADD_XN (2*load_avg, 1);
     int term_2 = DIV_XX(2*load_avg, term_1);
     
@@ -486,27 +495,36 @@ void update_recent_cpu_all (void)
 }
 
 
-void update_priority (void)
+void update_priority_all (void)
+{   
+    struct list_elem* el;
+    struct thread* t;
+
+    if (!list_empty (&remain_list))
+    {
+	for (el = list_begin(&remain_list); el == list_end(&remain_list); el = el->next)
+	{
+	    t = list_entry (el, struct thread, elem_cpu);
+	    t->priority = PRI_MAX - CONVERT_INT_NEAR ((t->recent_cpu)/4) - (t->nice*2); 
+    
+	    if (t->priority > PRI_MAX)
+		t->priority = PRI_MAX;
+	   
+	    else if (t->priority <PRI_MIN)
+		t->priority = PRI_MIN;
+	}
+    }
+}
+
+void update_priority (struct thread* t)
 {
-    
-    
-    struct thread* curr = thread_current();
-
-
-
-    ASSERT (curr->nice > NICE_MIN-1 && curr->nice < NICE_MAX+1);
-  
-    //ASSERT ((curr->recent_cpu)/(FRACTION*4) < PRI_MAX);
-
-
-    curr->priority = PRI_MAX - CONVERT_INT_NEAR ((curr->recent_cpu)/4) - (curr->nice*2); 
-    
-    if (curr->priority > PRI_MAX)
-	curr->priority = PRI_MAX;
-    else if (curr->priority <PRI_MIN)
-	curr->priority = PRI_MIN;
-
-    //ASSERT (curr->priority > PRI_MIN-1 && curr->priority < PRI_MAX+1);
+    t->priority = PRI_MAX - CONVERT_INT_NEAR ((t->recent_cpu)/4) - (t->nice*2); 
+   
+    if (t->priority > PRI_MAX)
+	t->priority = PRI_MAX;
+	   
+    else if (t->priority <PRI_MIN)
+	t->priority = PRI_MIN;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -751,7 +769,7 @@ bool less_priority (const struct list_elem *a, const struct list_elem *b, void *
 /* team10: execute thread_yield when ready_list is not empty
  * 	   used in synch.c
  */
-void thread_yield_custom(void)
+void thread_yield_custom (void)
 {
     ASSERT(!intr_context());
 
@@ -771,4 +789,21 @@ void is_idle_thread(struct thread* t)
     else
        t->recent_cpu = ADD_XN (t->recent_cpu, 1);      
 }
+
+void thread_yield_timer (void)
+{
+   ASSERT(intr_context());
+   
+   if (list_empty (&ready_list))
+       return ;
+
+   struct thread* curr = thread_current ();
+   struct thread* t;
+
+   t = list_entry (list_front (&ready_list), struct thread, elem);
+
+   if (curr->priority < t->priority)
+       intr_yield_on_return ();
+}
+
 

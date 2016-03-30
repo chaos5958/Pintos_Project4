@@ -104,19 +104,22 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks(); 
+  //int64_t start = timer_ticks(); 
   struct thread *t = thread_current();
  
   ASSERT (intr_get_level () == INTR_ON);
 
   //make thread sleep for TICKS timer ticks
-  t->sleep_ticks = start + ticks;
+  //t->sleep_ticks = start + ticks;
 
   //add to sleep list
-  list_insert_ordered(&sleep_list, &(t->elem) , less_sleep_ticks, NULL);
+  //list_insert_ordered(&sleep_list, &(t->elem) , less_sleep_ticks, NULL);
 
   //block current thread
   enum intr_level old_level = intr_disable();
+  int64_t start = timer_ticks(); 
+  t->sleep_ticks = start + ticks;
+  list_insert_ordered(&sleep_list, &(t->elem) , less_sleep_ticks, NULL);
   thread_block();
   intr_set_level(old_level);
   
@@ -158,7 +161,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  wakeup_thread (); 
+  //wakeup_thread (); 
 
   if (thread_mlfqs)
   {
@@ -173,9 +176,13 @@ timer_interrupt (struct intr_frame *args UNUSED)
     	  update_recent_cpu_all();
       }
       
-      if (ticks % 4 == 2)
-	  update_priority();
+      if (ticks % 4 == 0)
+	  update_priority_all();
   }
+
+  wakeup_thread();
+
+  thread_yield_timer();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
