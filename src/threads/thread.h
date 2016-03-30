@@ -30,10 +30,10 @@ typedef int tid_t;
 
 #define P 17
 #define Q 14
-#define FRACTION 1<<Q
+#define FRACTION (1<<Q)
 
 //#define FRACTION 16384
-
+/*
 #define CONVERT_FP(N) (N)*(FRACTION)
 #define CONVERT_INT_ZERO(X) (X)/(FRACTION)
 #define CONVERT_INT_NEAR(X) (X) >= 0 ? ((X)+(FRACTION)/2)/(FRACTION) : ((X)-(FRACTION)/2)/(FRACTION)
@@ -44,7 +44,7 @@ typedef int tid_t;
 #define MULTI_XN(X, N) (X)*(N)
 #define DIV_XX(X, Y) (((int64_t)(X))*(FRACTION))/(Y)
 #define DIV_XN(X, N) (X)/(N)
-
+*/
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The

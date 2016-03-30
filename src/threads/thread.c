@@ -78,6 +78,12 @@ static void schedule (void);
 void schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+static int CONVERT_INT_NEAR(int n);
+static int CONVERT_FP(int n);
+static int ADD_XN(int n1, int n2);
+static int MULTI_XX(int n1, int n2);
+static int DIV_XX(int n1, int n2);
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -111,6 +117,12 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  
+  if (thread_mlfqs)
+  {
+     list_push_back (&remain_list, &initial_thread->elem_cpu);
+     update_priority (initial_thread);
+  }
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -210,7 +222,7 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
 
-  // team1
+  // team1 
   if (thread_mlfqs)
   {
       list_push_back (&remain_list, &t->elem_cpu);
@@ -455,19 +467,21 @@ thread_get_recent_cpu (void)
 
 void update_load_avg (void)
 {
+    enum intr_level old_level;
     struct thread* curr = thread_current();
 
+    old_level = intr_disable ();
     int ready_threads = list_size (&ready_list);
 
-    if (curr->status == THREAD_RUNNING && curr != idle_thread)
+    if (curr != idle_thread)
 	ready_threads++;
 
     int term_1 = (CONVERT_FP(59)/60);
     int term_2 = (CONVERT_FP(1)/60); 
 
     load_avg = MULTI_XX(term_1, load_avg) + term_2 * ready_threads;
+    intr_set_level (old_level);
 }
-
 
 void update_recent_cpu (struct thread* t)
 { 
@@ -481,32 +495,41 @@ void update_recent_cpu (struct thread* t)
 
 void update_recent_cpu_all (void)
 {
+    enum intr_level old_level;
     struct list_elem* el;
     struct thread* t;
+    old_level = intr_disable ();
 
+    
     if (!list_empty (&remain_list))
     {
-	for (el = list_begin(&remain_list); el == list_end(&remain_list); el = el->next)
+	for (el = list_begin(&remain_list); el != list_end(&remain_list); el = list_next (el))
 	{
 	    t = list_entry (el, struct thread, elem_cpu);
 	    update_recent_cpu (t);
 	}
     }
+    
+    intr_set_level (old_level);
 }
 
 
 void update_priority_all (void)
 {   
+    enum intr_level old_level;
     struct list_elem* el;
     struct thread* t;
 
+    old_level = intr_disable ();
+   
     if (!list_empty (&remain_list))
     {
-	for (el = list_begin(&remain_list); el == list_end(&remain_list); el = el->next)
+       
+	for (el = list_begin(&remain_list); el != list_end(&remain_list); el = list_next (el))
 	{
 	    t = list_entry (el, struct thread, elem_cpu);
 	    t->priority = PRI_MAX - CONVERT_INT_NEAR ((t->recent_cpu)/4) - (t->nice*2); 
-    
+            
 	    if (t->priority > PRI_MAX)
 		t->priority = PRI_MAX;
 	   
@@ -514,12 +537,16 @@ void update_priority_all (void)
 		t->priority = PRI_MIN;
 	}
     }
+
+    list_sort (&ready_list, more_priority, NULL);
+
+    intr_set_level (old_level);
 }
 
 void update_priority (struct thread* t)
 {
     t->priority = PRI_MAX - CONVERT_INT_NEAR ((t->recent_cpu)/4) - (t->nice*2); 
-   
+    
     if (t->priority > PRI_MAX)
 	t->priority = PRI_MAX;
 	   
@@ -805,5 +832,35 @@ void thread_yield_timer (void)
    if (curr->priority < t->priority)
        intr_yield_on_return ();
 }
+
+static int CONVERT_INT_NEAR(int n)
+{
+    if (n >0) 
+	return (n + FRACTION/2)/(FRACTION);
+    else
+	return (n - FRACTION/2)/(FRACTION);
+}
+
+static int CONVERT_FP(int n)
+{
+    return n * FRACTION;
+}
+
+static int ADD_XN(int n1, int n2)
+{
+    return n1 + n2 * FRACTION;
+}
+
+static int MULTI_XX(int n1, int n2)
+{
+    return (int64_t)n1 * n2 / FRACTION;
+}
+
+static int DIV_XX(int n1, int n2)
+{
+    return (int64_t)n1 * FRACTION / n2;
+}
+
+
 
 
