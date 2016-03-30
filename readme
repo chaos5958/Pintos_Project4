@@ -1,9 +1,0 @@
-changed : src/devices/timer.c
-function timer_sleep(ticks)
-changed so that
-the thread is added to the sleep_list
-current thread is blocked
-
-changes to be made:
-timer_interrupt occurs, than wake up blocked thread, remove from sleep list, add to ready list, unblock.
-this is to be done at the function called from timer_interrupt, i guess; timer_interrupt function itself is called at certain ticks, so it is not to be called at function timer_sleep.
