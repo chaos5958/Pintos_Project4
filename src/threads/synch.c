@@ -200,7 +200,7 @@ lock_init (struct lock *lock)
   sema_init (&lock->semaphore, 1);
 
   // team10 lock_priority init 
-  lock->lock_priority = PRI_MIN -1;
+  lock->lock_priority = LK_DEFAULT;
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -240,9 +240,6 @@ lock_acquire (struct lock *lock)
       else
     	  list_push_back (&(curr->lock_list), &(lock->elem));
   }
-
-  //o sema_down (&lock->semaphore);
-  //o lock->holder = thread_current ();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -401,10 +398,7 @@ void priority_donation (struct lock* lk)
  
     if (!list_empty (&(lk->semaphore).waiters))
 	list_sort (&(lk->semaphore).waiters, more_priority, NULL);
-     
-    if (lk == NULL)
-	return;
-   
+      
     if (lk->holder == NULL)
 	return;
   
@@ -414,7 +408,6 @@ void priority_donation (struct lock* lk)
     if (lk->holder->priority > curr->priority)
 	return;
 	
-
     if ((lk->holder)->priority < curr->priority)
 	thread_set_priority_target (curr->priority, lk->holder);
 
@@ -435,7 +428,7 @@ static void priority_recovery (struct lock* lk)
        return;
 
    list_remove (&lk->elem);
-   lk->lock_priority = PRI_MIN-1;
+   lk->lock_priority = LK_DEFAULT;
  
    if (list_empty (&curr->lock_list))
    {
@@ -445,7 +438,7 @@ static void priority_recovery (struct lock* lk)
    {
        struct lock* lk_ = list_entry (list_front (&curr->lock_list), struct lock, elem);
       
-       if (lk_->lock_priority == PRI_MIN-1)
+       if (lk_->lock_priority == LK_DEFAULT)
 	  thread_set_priority_target (curr->ori_priority, curr);
        else
 	  thread_set_priority_target (lk_->lock_priority, curr);

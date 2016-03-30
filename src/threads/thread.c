@@ -11,7 +11,6 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-//#include "threads/fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -111,6 +110,12 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  
+  if (thread_mlfqs)
+  {
+     list_push_back (&remain_list, &initial_thread->elem_cpu);
+     update_priority (initial_thread);
+  }
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -210,7 +215,7 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
 
-  // team1
+  // team1 
   if (thread_mlfqs)
   {
       list_push_back (&remain_list, &t->elem_cpu);
@@ -261,7 +266,6 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  //o list_push_back (&ready_list, &t->elem);
   // team10: insert it to the ready list regarding priority (high comes first)
   list_insert_ordered (&ready_list, &t->elem, more_priority, NULL);
   t->status = THREAD_READY; 
@@ -341,7 +345,6 @@ thread_yield (void)
      // team10: insert it to the ready list regarding priority (high comes first)
      list_insert_ordered (&ready_list, &curr->elem, more_priority, NULL);
    
-     //o list_push_back (&ready_list, &curr->elem);
    
   curr->status = THREAD_READY;
   schedule ();
@@ -455,19 +458,21 @@ thread_get_recent_cpu (void)
 
 void update_load_avg (void)
 {
+    enum intr_level old_level;
     struct thread* curr = thread_current();
 
+    old_level = intr_disable ();
     int ready_threads = list_size (&ready_list);
 
-    if (curr->status == THREAD_RUNNING && curr != idle_thread)
+    if (curr != idle_thread)
 	ready_threads++;
 
     int term_1 = (CONVERT_FP(59)/60);
     int term_2 = (CONVERT_FP(1)/60); 
 
     load_avg = MULTI_XX(term_1, load_avg) + term_2 * ready_threads;
+    intr_set_level (old_level);
 }
-
 
 void update_recent_cpu (struct thread* t)
 { 
@@ -481,32 +486,41 @@ void update_recent_cpu (struct thread* t)
 
 void update_recent_cpu_all (void)
 {
+    enum intr_level old_level;
     struct list_elem* el;
     struct thread* t;
+    old_level = intr_disable ();
 
+    
     if (!list_empty (&remain_list))
     {
-	for (el = list_begin(&remain_list); el == list_end(&remain_list); el = el->next)
+	for (el = list_begin(&remain_list); el != list_end(&remain_list); el = list_next (el))
 	{
 	    t = list_entry (el, struct thread, elem_cpu);
 	    update_recent_cpu (t);
 	}
     }
+    
+    intr_set_level (old_level);
 }
 
 
 void update_priority_all (void)
 {   
+    enum intr_level old_level;
     struct list_elem* el;
     struct thread* t;
 
+    old_level = intr_disable ();
+   
     if (!list_empty (&remain_list))
     {
-	for (el = list_begin(&remain_list); el == list_end(&remain_list); el = el->next)
+       
+	for (el = list_begin(&remain_list); el != list_end(&remain_list); el = list_next (el))
 	{
 	    t = list_entry (el, struct thread, elem_cpu);
 	    t->priority = PRI_MAX - CONVERT_INT_NEAR ((t->recent_cpu)/4) - (t->nice*2); 
-    
+            
 	    if (t->priority > PRI_MAX)
 		t->priority = PRI_MAX;
 	   
@@ -514,12 +528,14 @@ void update_priority_all (void)
 		t->priority = PRI_MIN;
 	}
     }
+
+    intr_set_level (old_level);
 }
 
 void update_priority (struct thread* t)
 {
     t->priority = PRI_MAX - CONVERT_INT_NEAR ((t->recent_cpu)/4) - (t->nice*2); 
-   
+    
     if (t->priority > PRI_MAX)
 	t->priority = PRI_MAX;
 	   
@@ -649,7 +665,6 @@ next_thread_to_run (void)
     // team10: run the hightest priority thread in ready_list
     list_sort (&ready_list, more_priority, NULL);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
-    //o return list_entry (list_pop_back (&ready_list), struct thread, elem); 
   }
 }
 
@@ -805,5 +820,6 @@ void thread_yield_timer (void)
    if (curr->priority < t->priority)
        intr_yield_on_return ();
 }
+
 
 

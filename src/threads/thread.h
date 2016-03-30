@@ -24,26 +24,26 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+#define LK_DEFAULT (PRI_MIN - 1)
+
 #define NICE_MIN -20
 #define NICE_DEFAULT 0
 #define NICE_MAX 20
 
 #define P 17
 #define Q 14
-#define FRACTION 1<<Q
+#define FRACTION (1<<Q)
 
-//#define FRACTION 16384
-
-#define CONVERT_FP(N) (N)*(FRACTION)
-#define CONVERT_INT_ZERO(X) (X)/(FRACTION)
-#define CONVERT_INT_NEAR(X) (X) >= 0 ? ((X)+(FRACTION)/2)/(FRACTION) : ((X)-(FRACTION)/2)/(FRACTION)
-#define ADD_XN(X, N) (X) + (N)*(FRACTION)
-#define SUB_XN(X, N) (X) - (N)*(FRACTION)
-#define SUB_NX(N, X) (N)*(FRACTION) - (X)
-#define MULTI_XX(X, Y) (((int64_t)(X))*(Y))/(FRACTION)
-#define MULTI_XN(X, N) (X)*(N)
-#define DIV_XX(X, Y) (((int64_t)(X))*(FRACTION))/(Y)
-#define DIV_XN(X, N) (X)/(N)
+#define CONVERT_FP(N) ((N)*(FRACTION))
+#define CONVERT_INT_ZERO(X) ((X)/(FRACTION))
+#define CONVERT_INT_NEAR(X) ((X) >= 0 ? ((X)+(FRACTION)/2)/(FRACTION) : ((X)-(FRACTION)/2)/(FRACTION))
+#define ADD_XN(X, N) ((X) + (N)*(FRACTION))
+#define SUB_XN(X, N) ((X) - (N)*(FRACTION))
+#define SUB_NX(N, X) ((N)*(FRACTION) - (X))
+#define MULTI_XX(X, Y) ((((int64_t)(X))*(Y))/(FRACTION))
+#define MULTI_XN(X, N) ((X)*(N))
+#define DIV_XX(X, Y) ((((int64_t)(X))*(FRACTION))/(Y))
+#define DIV_XN(X, N) ((X)/(N))
 
 /* A kernel thread or user process.
 

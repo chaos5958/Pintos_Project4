@@ -7,7 +7,6 @@
 #include "threads/io.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-#include "threads/fixed-point.h"
 #include <list.h>
   
 /* See [8254] for hardware details of the 8254 timer chip. */
@@ -104,29 +103,20 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  //int64_t start = timer_ticks(); 
-  struct thread *t = thread_current();
- 
   ASSERT (intr_get_level () == INTR_ON);
-
-  //make thread sleep for TICKS timer ticks
-  //t->sleep_ticks = start + ticks;
-
-  //add to sleep list
-  //list_insert_ordered(&sleep_list, &(t->elem) , less_sleep_ticks, NULL);
-
+   
+  struct thread *t = thread_current();
+  int64_t start;
+  enum intr_level old_level; 
+ 
   //block current thread
-  enum intr_level old_level = intr_disable();
-  int64_t start = timer_ticks(); 
+  old_level = intr_disable();
+  start = timer_ticks(); 
   t->sleep_ticks = start + ticks;
   list_insert_ordered(&sleep_list, &(t->elem) , less_sleep_ticks, NULL);
   thread_block();
   intr_set_level(old_level);
-  
-  //o  while (timer_elapsed (start) < ticks) turn off yielding while timer ticks
-  //o  thread_yield ();
-}
-
+}  
 /* Suspends execution for approximately MS milliseconds. */
 void
 timer_msleep (int64_t ms) 
@@ -161,14 +151,12 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  //wakeup_thread (); 
 
   if (thread_mlfqs)
   {
       struct thread* curr = thread_current ();
       
       is_idle_thread(curr);
-      	 // curr->recent_cpu = ADD_XN (curr->recent_cpu, 1);      
 
       if (ticks % TIMER_FREQ == 0)
       {
