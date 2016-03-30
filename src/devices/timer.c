@@ -7,6 +7,7 @@
 #include "threads/io.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "threads/fixed-point.h"
 #include <list.h>
   
 /* See [8254] for hardware details of the 8254 timer chip. */
@@ -103,19 +104,22 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks(); 
+  //int64_t start = timer_ticks(); 
   struct thread *t = thread_current();
  
   ASSERT (intr_get_level () == INTR_ON);
 
   //make thread sleep for TICKS timer ticks
-  t->sleep_ticks = start + ticks;
+  //t->sleep_ticks = start + ticks;
 
   //add to sleep list
-  list_insert_ordered(&sleep_list, &(t->elem) , less_sleep_ticks, NULL);
+  //list_insert_ordered(&sleep_list, &(t->elem) , less_sleep_ticks, NULL);
 
   //block current thread
   enum intr_level old_level = intr_disable();
+  int64_t start = timer_ticks(); 
+  t->sleep_ticks = start + ticks;
+  list_insert_ordered(&sleep_list, &(t->elem) , less_sleep_ticks, NULL);
   thread_block();
   intr_set_level(old_level);
   
@@ -157,7 +161,28 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  wakeup_thread (); 
+  //wakeup_thread (); 
+
+  if (thread_mlfqs)
+  {
+      struct thread* curr = thread_current ();
+      
+      is_idle_thread(curr);
+      	 // curr->recent_cpu = ADD_XN (curr->recent_cpu, 1);      
+
+      if (ticks % TIMER_FREQ == 0)
+      {
+	  update_load_avg();
+    	  update_recent_cpu_all();
+      }
+      
+      if (ticks % 4 == 0)
+	  update_priority_all();
+  }
+
+  wakeup_thread();
+
+  thread_yield_timer();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -237,7 +262,7 @@ static bool less_sleep_ticks(const struct list_elem* a, const struct list_elem* 
 }
 
 static void wakeup_thread(void)
-{
+{           
     size_t size_sleep = list_size(&sleep_list);
     struct thread* t;
 

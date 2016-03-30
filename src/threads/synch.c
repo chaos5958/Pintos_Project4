@@ -220,21 +220,27 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   struct thread* curr = thread_current ();
-  curr->target_lock = lock; 
-
-  priority_donation (lock);   
   
+  if (!thread_mlfqs)
+  {
+      curr->target_lock = lock; 
+      priority_donation (lock);   
+  }
+
   sema_down (&lock->semaphore);
   
   lock->holder = curr;
   
-  curr -> target_lock = NULL;
-  
-  if (!list_empty (&curr->lock_list))
-      list_insert_ordered (&(curr->lock_list), &(lock->elem), more_lock_priority, NULL);  
-  else
-      list_push_back (&(curr->lock_list), &(lock->elem));
-  
+  if (!thread_mlfqs)
+  {
+      curr -> target_lock = NULL;
+    
+      if (!list_empty (&curr->lock_list))
+    	  list_insert_ordered (&(curr->lock_list), &(lock->elem), more_lock_priority, NULL);  
+      else
+    	  list_push_back (&(curr->lock_list), &(lock->elem));
+  }
+
   //o sema_down (&lock->semaphore);
   //o lock->holder = thread_current ();
 }
@@ -273,7 +279,9 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   lock->holder = NULL;
-  priority_recovery (lock);
+  
+  if (!thread_mlfqs)
+      priority_recovery (lock);
 
   sema_up (&lock->semaphore);
 }
