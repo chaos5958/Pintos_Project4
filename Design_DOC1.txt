@@ -7,10 +7,11 @@
 ---- GROUP ----
 
 >> Fill in the names and email addresses of your group members.
+Team10 
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+20120597 Yeo Hyun Ho pkpk5958@kaist.ac.kr 
+20120130 Kim Woo Sung k.woosung@kaist.ac.kr
+
 
 ---- PRELIMINARIES ----
 
@@ -93,7 +94,8 @@ We want to minimize time spent in timer_interrupt(), so we order threads in time
 3. struct semaphore_elem
     1) int priority: the highest priority of thread which is related to semaphore
 
-
+4. #define LK_DEFAULT
+    It is defualt value of lock_priority of struct lock when it is not hold by any threads.
 
 >> B2: Explain the data structure used to track priority donation.
 >> Use ASCII art to diagram a nested donation.  (Alternately, submit a
@@ -139,7 +141,7 @@ Before we wakes up those synchronization primitives, we ordered those decrementa
    4) Set holder of 'lock' by current thread
 
 2. Nested donation (input: lock)
-   1) Examine wheter hodler of lock isn't NULL (if NULL, then terminate 2.)
+   1) Examine whether hodler of lock isn't NULL (if NULL, then terminate 2.)
    2) If holder of lock priority is less than current thread, 
       set that priority by curent one
    3) Examine whether holder of lock has target_lock 
@@ -147,7 +149,14 @@ Before we wakes up those synchronization primitives, we ordered those decrementa
 
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for
-   
+   1) Set holder of struct lock to NULL
+   2) Sort the waiters of lock in order of priority
+   3) Examine whether lock_list of current thread is empty or not
+   4) If it is empty, set the it's priority by ori_priority and terminate
+      If is nothing do the following steps
+   5) Examine highest lock_priority of lock in the lock_list of current thread
+   6) If is equal to LK_DEFUALT, set it's priority by ori_priority
+      If is not equal to LK_DEFAULT, set it's priority by lock_priority
 
 ---- SYNCHRONIZATION ----
 
@@ -155,10 +164,25 @@ Before we wakes up those synchronization primitives, we ordered those decrementa
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
 
+We turn off interrupt while thread_set_priority() 
+Because we set the priority considering lots of conditions 
+involving other values like ori_priority, curr->target_lock, curr->status,
+These values should not be changed while we set the priority by interrupt handlers or other things
+
+Because interrupt handler can't get locks and don't know about it, 
+We should turn off interrupt 	
+
+
 ---- RATIONALE ----
 
 >> B7: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
+First we consider the design which dynamically get the original_priority by tracking donate relation
+However, it seems inefficient in time manner, so we divide the priority into ori_priority and priority
+, and we save the changes in priority when priority donation and recovery happens
+It uses more memories than the first, but we think time is more important than memory in this case. 
+
 
 			  ADVANCED SCHEDULER
 			  ==================
@@ -167,15 +191,31 @@ Before we wakes up those synchronization primitives, we ordered those decrementa
 
 >> C1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
->> enumeration.  Identify the purpose of each in 25 words or less.
+>> enumeration.  Identify the purpose of each in 25 words or less
+
+In thread.h
+
+1. struct thread
+    1) int recent_cpu;               //The thread's recent_cpu value, which is a measurement of how much CPU time the thread has received recently.
+    2) struct list_elem elem_cpu;    //struct list_elem, which is used to add the thread to remain_list
+
+In thread.c.
+
+static struct list remain_list;  //The list that keep track of all threads except idle_thread; Used to calculate recent_cpu and priority values of all threads at designated timer ticks.
+ 
+static int load_avg;          //Load_avg value, which estimates the average number of thrads ready to run over the past minute.
 
 ---- ALGORITHMS ----
 >> C2: Did any ambiguities in the scheduler specification make values
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behavior of your scheduler?
 
+Yes. If multiple threads have same priority, the scheduler schedules the frontmost thread in the ready queue to run, which is the thread that has been run least recently.
+
 >> C3: How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
+
+Most of the computation needs to be done within the interrupt handler, since the computation needs to be done at exact time. Incrementing the recent_cpu value and updating the priority of current thread does not take very much time, but updating recent_cpu and load_avg every second, which is calculated over all threads, may affect performance. Other than calculating ticks, priority, recent_cpu, load_avg, and waking up threads are not included in timer interrupt to minimize time spent in timer_interrupt. In addition, we order ready_list to run highest_thread which consumes much time in outside of interrupt context
 
 ---- RATIONALE ----
 
@@ -184,12 +224,25 @@ Before we wakes up those synchronization primitives, we ordered those decrementa
 >> time to work on this part of the project, how might you choose to
 >> refine or improve your design?
 
+
+Advantages:
+1) Simple, since we didn't lock the thread variables.
+2) Using macros for fixed-point math makes calculations faster, and using <<(bitwise calculation) with the macros declared for how many bits are representing the fraction, makes it easy to control the location of floating point in fixed-point real arithmatic.
+
+Disadvantages:
+1) Less performance due to turning off interrupts instead of locking the thraed variables.
+
+If we have more time, we would implement lock to solve synchronization issue instead of interrupt in possible cases which will result in improving speed of the code 
+
+
 >> C5: The assignment explains arithmetic for fixed-point math in
 >> detail, but it leaves it open to you to implement it.  Why did you
 >> decide to implement it the way you did?  If you created an
 >> abstraction layer for fixed-point math, that is, an abstract data
 >> type and/or a set of functions or macros to manipulate fixed-point
 >> numbers, why did you do so?  If not, why not?
+
+The floating data is declared as int32_t, and its calculation is done by macros. Using macros minimized the time used for calculation. The macros are defined in thread.h, since the calculation is done in functions located in thread.c
 
 			   SURVEY QUESTIONS
 			   ================

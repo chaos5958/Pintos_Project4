@@ -90,6 +90,7 @@ static tid_t allocate_tid (void);
 
    It is not safe to call thread_current() until this function
    finishes. */
+// (+modify) team10
 void
 thread_init (void) 
 {
@@ -98,7 +99,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
 
-  //team10
+  //team10 in advanced scheduler, initialize remain_list
   if (thread_mlfqs)
   {
       list_init (&remain_list);
@@ -110,7 +111,8 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-  
+ 
+  //team10 in advanced scheduler, put main_thread to reamin_list  
   if (thread_mlfqs)
   {
      list_push_back (&remain_list, &initial_thread->elem_cpu);
@@ -180,6 +182,7 @@ thread_print_stats (void)
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
+// (+modify) team10 
 tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
@@ -257,6 +260,7 @@ thread_block (void)
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
    update other data. */
+// (+modify) team10
 void
 thread_unblock (struct thread *t) 
 {
@@ -308,6 +312,7 @@ thread_tid (void)
 
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
+// (+modify) team10
 void
 thread_exit (void) 
 {
@@ -321,6 +326,7 @@ thread_exit (void)
      We will be destroyed during the call to schedule_tail(). */
   intr_disable ();
   
+  //team10 In advanced scheduler, removes elem_cpu of struct thread when thread dies
   if (thread_mlfqs)
   	list_remove(&thread_current ()->elem_cpu);
 
@@ -332,6 +338,7 @@ thread_exit (void)
 
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
+// (+modify) team10
 void
 thread_yield (void) 
 {
@@ -358,7 +365,8 @@ void
 thread_set_priority (int new_priority)
 {
     struct thread* curr = thread_current();
-    
+    enum intr_level old_level = intr_disable();
+
     if (curr->priority != curr->ori_priority )
     {
 	curr->ori_priority = new_priority;
@@ -387,13 +395,15 @@ thread_set_priority (int new_priority)
     else if (curr->status == THREAD_RUNNING && !list_empty(&ready_list) && list_entry (list_front (&ready_list), struct thread, elem)->priority > new_priority)
 	thread_yield ();
    
+    intr_set_level (old_level);
 }
 
 
-/* team10i: thread_set_priority using inside priority donation */
+/* team10: thread_set_priority using inside priority donation */
 void
 thread_set_priority_target (int new_priority, struct thread* target_t) 
 {   
+    enum intr_level old_level = intr_disable();
     target_t->priority = new_priority;
 
     if (target_t->status == THREAD_READY)
@@ -401,6 +411,8 @@ thread_set_priority_target (int new_priority, struct thread* target_t)
 	list_remove (&target_t->elem);
 	list_insert_ordered (&ready_list, &target_t->elem, more_priority, NULL);
     }
+
+    intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -411,6 +423,7 @@ thread_get_priority (void)
 }
 
 /* Sets the current thread's nice value to NICE. */
+// (+moifiy) team10
 void
 thread_set_nice (int nice UNUSED) 
 {
@@ -432,6 +445,7 @@ thread_set_nice (int nice UNUSED)
 }
 
 /* Returns the current thread's nice value. */
+// (+modify) team10
 int
 thread_get_nice (void) 
 {
@@ -443,6 +457,7 @@ thread_get_nice (void)
 }
 
 /* Returns 100 times the system load average. */
+// (+modify) team10
 int
 thread_get_load_avg (void) 
 {
@@ -450,12 +465,14 @@ thread_get_load_avg (void)
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
+// (+modify) team10
 int
 thread_get_recent_cpu (void) 
 {
     return CONVERT_INT_NEAR((thread_current ()->recent_cpu)*100);
 }
 
+// team 10: update load_avg
 void update_load_avg (void)
 {
     enum intr_level old_level;
@@ -474,6 +491,7 @@ void update_load_avg (void)
     intr_set_level (old_level);
 }
 
+// team 10: update particular thread's recent cpu
 void update_recent_cpu (struct thread* t)
 { 
     if (t == idle_thread)
@@ -484,6 +502,7 @@ void update_recent_cpu (struct thread* t)
     t->recent_cpu = MULTI_XX(term_2, t->recent_cpu) + CONVERT_FP(t->nice);
 }
 
+// team 10: update recent_cpu of all threads (running, ready, blocked) in remain_list
 void update_recent_cpu_all (void)
 {
     enum intr_level old_level;
@@ -504,7 +523,7 @@ void update_recent_cpu_all (void)
     intr_set_level (old_level);
 }
 
-
+// team 10: update priority of all threads (running, ready, blocked) in remain_list
 void update_priority_all (void)
 {   
     enum intr_level old_level;
@@ -532,6 +551,7 @@ void update_priority_all (void)
     intr_set_level (old_level);
 }
 
+// team10: update particular thread priority
 void update_priority (struct thread* t)
 {
     t->priority = PRI_MAX - CONVERT_INT_NEAR ((t->recent_cpu)/4) - (t->nice*2); 
@@ -656,6 +676,7 @@ alloc_frame (struct thread *t, size_t size)
    empty.  (If the running thread can continue running, then it
    will be in the run queue.)  If the run queue is empty, return
    idle_thread. */
+// (+modify) team10 insert sorting
 static struct thread *
 next_thread_to_run (void) 
 {
@@ -805,6 +826,7 @@ void is_idle_thread(struct thread* t)
        t->recent_cpu = ADD_XN (t->recent_cpu, 1);      
 }
 
+/* team10: use in timer_interrupt to run highest priority thread */
 void thread_yield_timer (void)
 {
    ASSERT(intr_context());

@@ -145,17 +145,6 @@ struct thread
 
 extern bool thread_mlfqs;
 
-/* =======================team10 add function list=======================
-   explanation of each functions is located before definition
-
-   1. thread_set_priority_target
-   2. more_priority
-   3. less_priority
-   4. thread_yield_custom
-
-   ======================================================================
-*/
-
 void thread_init (void);
 void thread_start (void);
 
@@ -178,14 +167,13 @@ void thread_yield (void);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
-void thread_set_priority_target (int, struct thread*);
-
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-
+/* team 10 functions list */ 
+void thread_set_priority_target (int, struct thread*);
 bool more_priority(const struct list_elem*, const struct list_elem*, void *aux UNUSED);
 bool less_priority(const struct list_elem*, const struct list_elem*, void *aux UNUSED);
 void thread_yield_custom (void);
