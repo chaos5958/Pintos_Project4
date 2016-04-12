@@ -73,7 +73,7 @@ start_process (void *f_name)
 	  token = strtok_r (NULL, " ", &save_ptr))
   {
       argv_addr[argc] = file_name - token;
-      printf("length: %s, argv_addr: %d\n", token, argv_addr[argc]);
+      //printf("length: %s, argv_addr: %d\n", token, argv_addr[argc]);
 
       argc++; 
   }
@@ -90,11 +90,11 @@ start_process (void *f_name)
   if (success)
   {
       start = if_.esp;
-      printf("start: %p, remainder %d\n", if_.esp, length % 4);
-      printf("file name; %s\n", file_name);
+      //printf("start: %p, remainder %d\n", if_.esp, length % 4);
+      //printf("file name; %s\n", file_name);
       if_.esp = if_.esp - length; 
       memcpy (if_.esp, file_name, length);
-      printf("current sp: %p, string: %s\n", if_.esp, (char *)if_.esp);
+      //printf("current sp: %p, string: %s\n", if_.esp, (char *)if_.esp);
          
       for (i = 0 ; i < 4 - length % 4 ; i++)
       {
@@ -111,8 +111,8 @@ start_process (void *f_name)
 	 if_.esp -= 4;
 	 *(char **)if_.esp = (char *)(start - length -  argv_addr[i]); 
 	 
-	 printf("result: is_.esp: %p\n", *(char **)if_.esp);
-	 printf("result: string: %s\n", *(char **)if_.esp);
+	 //printf("result: is_.esp: %p\n", *(char **)if_.esp);
+	 //printf("result: string: %s\n", *(char **)if_.esp);
      }
      
      if_.esp -= 4;
@@ -120,7 +120,7 @@ start_process (void *f_name)
 
      if_.esp -= sizeof(int);
      *(int *)if_.esp = argc;
-     printf("test: %d\n", *(int *)if_.esp);
+     //printf("test: %d\n", *(int *)if_.esp);
 
      if_.esp -= 4;
      *(int *)if_.esp = 0;
