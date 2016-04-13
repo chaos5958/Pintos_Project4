@@ -143,7 +143,7 @@ struct thread
     struct semaphore* wait;  
 
     int ret_status;
-
+    bool ret_valid; //whether thread has been terminated by user or kernel
 
 #endif
 

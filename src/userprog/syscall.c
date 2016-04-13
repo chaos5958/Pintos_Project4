@@ -161,6 +161,13 @@ halt (void)
 static void
 exit (int status)
 {
+    struct thread* t = thread_current();
+    //if parent waits(exists)
+    if (t->parent != NULL){
+    //give status to parent
+      t->parent->ret_status = status;
+      t->parent->ret_valid = true;
+    }
     thread_exit();
 }
 

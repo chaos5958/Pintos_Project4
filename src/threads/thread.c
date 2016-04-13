@@ -666,6 +666,7 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init (t->wait, 0);
   t->parent = NULL;
   t->wait = NULL;
+  t->ret_valid = false;
 #endif 
 }
 
