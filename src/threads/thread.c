@@ -100,9 +100,10 @@ thread_init (void)
   list_init (&ready_list);
 
   //team10 in advanced scheduler, initialize remain_list
+  list_init (&remain_list); 
+  
   if (thread_mlfqs)
   {
-      list_init (&remain_list);
       load_avg = 0;
   } 
 
@@ -113,9 +114,10 @@ thread_init (void)
   initial_thread->tid = allocate_tid ();
  
   //team10 in advanced scheduler, put main_thread to reamin_list  
+  list_push_back (&remain_list, &initial_thread->elem_cpu);
+
   if (thread_mlfqs)
   {
-     list_push_back (&remain_list, &initial_thread->elem_cpu);
      update_priority (initial_thread);
   }
 }
@@ -219,9 +221,10 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
 
   // team1 
+  list_push_back (&remain_list, &t->elem_cpu);
+
   if (thread_mlfqs)
   {
-      list_push_back (&remain_list, &t->elem_cpu);
       update_priority (t);
   }
 
@@ -655,7 +658,15 @@ init_thread (struct thread *t, const char *name, int priority)
   t->target_lock = NULL;
   list_init(&(t->lock_list));
   t->nice = NICE_DEFAULT;
-  t->recent_cpu = 0;  
+  t->recent_cpu = 0; 
+
+  // team10: proj 2
+#ifdef USERPROG
+  list_init (&(t->child_list)); 
+  sema_init (t->wait, 0);
+  t->parent = NULL;
+  t->wait = NULL;
+#endif 
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -843,5 +854,17 @@ void thread_yield_timer (void)
        intr_yield_on_return ();
 }
 
+struct thread* is_valid_tid (tid_t tid)
+{
+    struct list_elem* el;
+    struct thread *t;
 
+    for (el = list_begin (&remain_list); el != list_end (&remain_list); el = list_next (el))
+    {
+	t = list_entry (el, struct thread, elem_cpu);
+	if (tid == t->tid)
+	    return t;
+    }
 
+    return NULL;
+}
