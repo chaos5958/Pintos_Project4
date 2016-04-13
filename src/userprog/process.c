@@ -18,8 +18,13 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+// team10 
+#include "threads/malloc.h"
+
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -53,6 +58,25 @@ start_process (void *f_name)
   char *file_name = f_name;
   struct intr_frame if_;
   bool success;
+  
+  //team 10 
+  char *token, *save_ptr;
+
+  int *argv_addr = malloc (sizeof (int) * ARG_NUM);
+  int length = strlen (file_name) + 1; 
+  int argc = 0;
+  void* start;
+  void (*ret_ptr)(void) = NULL;
+  int i;
+ 
+  for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
+	  token = strtok_r (NULL, " ", &save_ptr))
+  {
+      argv_addr[argc] = file_name - token;
+      //printf("length: %s, argv_addr: %d\n", token, argv_addr[argc]);
+
+      argc++; 
+  }
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -60,6 +84,50 @@ start_process (void *f_name)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+
+
+  //team 10
+  if (success)
+  {
+      start = if_.esp;
+      //printf("start: %p, remainder %d\n", if_.esp, length % 4);
+      //printf("file name; %s\n", file_name);
+      if_.esp = if_.esp - length; 
+      memcpy (if_.esp, file_name, length);
+      //printf("current sp: %p, string: %s\n", if_.esp, (char *)if_.esp);
+         
+      for (i = 0 ; i < 4 - length % 4 ; i++)
+      {
+	  if_.esp = if_.esp - 1;
+	  *(uint8_t *)if_.esp = 0;
+      }
+
+      if_.esp = if_.esp - 4; 
+      *(char **)if_.esp = NULL; 
+      
+      
+     for (i = argc-1 ; i >= 0 ; i --)
+     { 
+	 if_.esp -= 4;
+	 *(char **)if_.esp = (char *)(start - length -  argv_addr[i]); 
+	 
+	 //printf("result: is_.esp: %p\n", *(char **)if_.esp);
+	 //printf("result: string: %s\n", *(char **)if_.esp);
+     }
+     
+     if_.esp -= 4;
+     *(char **)if_.esp = if_.esp + 4; 
+
+     if_.esp -= sizeof(int);
+     *(int *)if_.esp = argc;
+     //printf("test: %d\n", *(int *)if_.esp);
+
+     if_.esp -= 4;
+     *(int *)if_.esp = 0;
+     
+
+      hex_dump(0, if_.esp, (uintptr_t)start - (uintptr_t)if_.esp, true);
+  }
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -79,6 +147,7 @@ start_process (void *f_name)
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
+   exception), returns -1.  If TID is invalid or if it was not a
    child of the calling process, or if process_wait() has already
    been successfully called for the given TID, returns -1
    immediately, without waiting.
@@ -88,7 +157,8 @@ start_process (void *f_name)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+    while(1);
+    //return -1;
 }
 
 /* Free the current process's resources. */
@@ -304,6 +374,39 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
+  
+  // team 10 
+  /*
+  else{
+      file_name = (char *) file_name;
+      char *token, *save_ptr;
+
+      int *argv_addr = malloc (sizeof (int) * ARG_NUM);
+      int length = strlen (file_name) + 1; 
+      int argc = 0;
+      int start;  
+      //uint8_t world-align = 0; 
+
+      for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
+	      token = strtok_r (NULL, " ", &save_ptr))
+      {
+	  argv_addr[argc] = file_name - token;
+	  argc++; 
+      }
+
+      start = *esp; 
+      memcpy (*esp, file_name, length);
+      *esp = *esp - length;
+
+      *esp = *esp - length%4; 
+      
+      for (argc = argc - 1 ; argc >= 0 ; argc--)
+      {
+	  *esp = start - argv_addr[argc]; 
+	  *esp = *esp - 4;
+      }	        
+  }
+  */
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
