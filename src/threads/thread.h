@@ -5,6 +5,9 @@
 #include <list.h>
 #include <stdint.h>
 
+//team 10
+#include "threads/synch.h"
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -129,10 +132,19 @@ struct thread
     int recent_cpu;
 
     struct list_elem elem_cpu;
-     
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+
+    struct list child_list;
+    struct list_elem child;
+    struct thread* parent;
+    struct semaphore* wait;  
+
+    int ret_status;
+
+
 #endif
 
     /* Owned by thread.c. */
@@ -184,5 +196,8 @@ void update_recent_cpu_all (void);
 void update_priority_all (void);
 void update_priority (struct thread*);
 void is_idle_thread (struct thread*);
+
+/* project 2 */
+struct thread* is_valid_tid (tid_t tid);
 
 #endif /* threads/thread.h */

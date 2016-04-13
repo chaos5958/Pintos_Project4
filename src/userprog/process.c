@@ -48,6 +48,8 @@ process_execute (const char *file_name)
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
+
+  printf("end process_execute");
 }
 
 /* A thread function that loads a user process and makes it start
@@ -55,6 +57,7 @@ process_execute (const char *file_name)
 static void
 start_process (void *f_name)
 {
+  printf("start process\n");
   char *file_name = f_name;
   struct intr_frame if_;
   bool success;
@@ -77,6 +80,8 @@ start_process (void *f_name)
 
       argc++; 
   }
+  
+  printf("before load\n");
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -85,6 +90,8 @@ start_process (void *f_name)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
+
+  printf("after load\n");
 
   //team 10
   if (success)
@@ -125,7 +132,6 @@ start_process (void *f_name)
      if_.esp -= 4;
      *(int *)if_.esp = 0;
      
-
       hex_dump(0, if_.esp, (uintptr_t)start - (uintptr_t)if_.esp, true);
   }
 
@@ -157,8 +163,16 @@ start_process (void *f_name)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-    while(1);
-    //return -1;
+    //printf("process wait\n");
+    struct thread* t = is_valid_tid (child_tid);
+    if (t == NULL || t->status == THREAD_DYING)
+	goto done;
+
+    sema_down(t->wait);
+    return t->ret_status;
+
+done:
+    return -1; 
 }
 
 /* Free the current process's resources. */
