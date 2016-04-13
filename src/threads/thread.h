@@ -48,6 +48,7 @@ typedef int tid_t;
 #define DIV_XX(X, Y) ((((int64_t)(X))*(FRACTION))/(Y))
 #define DIV_XN(X, N) ((X)/(N))
 
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The

@@ -69,7 +69,6 @@ start_process (void *f_name)
   int length = strlen (file_name) + 1; 
   int argc = 0;
   void* start;
-  void (*ret_ptr)(void) = NULL;
   int i;
  
   for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
@@ -160,15 +159,21 @@ start_process (void *f_name)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
+
+//Question : TID KERNEL CALL CHECK?     
 int
 process_wait (tid_t child_tid UNUSED) 
 {
     //printf("process wait\n");
     struct thread* t = is_valid_tid (child_tid);
-    if (t == NULL || t->status == THREAD_DYING)
+    if (t == NULL || t->status == THREAD_DYING || t->ret_valid == false)
 	goto done;
 
+    if (t->parent != thread_current ())
+	goto done;	
+
     sema_down(t->wait);
+    printf("%s, exit(%d)\n", t->name, t->ret_status); 
     return t->ret_status;
 
 done:
