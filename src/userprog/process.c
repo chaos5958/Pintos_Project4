@@ -35,6 +35,7 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
+  struct thread *t;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -42,14 +43,22 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  
+  char *token, *save_ptr;
+  token = strtok_r (file_name, " ", &save_ptr); 
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  
+  //team10
+  t = is_valid_tid (tid);
+  t->parent = thread_current();
+
   return tid;
 
-  printf("end process_execute");
 }
 
 /* A thread function that loads a user process and makes it start
@@ -57,7 +66,7 @@ process_execute (const char *file_name)
 static void
 start_process (void *f_name)
 {
-  printf("start process\n");
+  //printf("start process\n");
   char *file_name = f_name;
   struct intr_frame if_;
   bool success;
@@ -80,7 +89,7 @@ start_process (void *f_name)
       argc++; 
   }
   
-  printf("before load\n");
+  //printf("before load\n");
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -90,7 +99,7 @@ start_process (void *f_name)
   success = load (file_name, &if_.eip, &if_.esp);
 
 
-  printf("after load\n");
+  //printf("after load\n");
 
   //team 10
   if (success)
@@ -131,7 +140,7 @@ start_process (void *f_name)
      if_.esp -= 4;
      *(int *)if_.esp = 0;
      
-      hex_dump(0, if_.esp, (uintptr_t)start - (uintptr_t)if_.esp, true);
+      //hex_dump(0, if_.esp, (uintptr_t)start - (uintptr_t)if_.esp, true);
   }
 
   /* If load failed, quit. */
@@ -164,19 +173,34 @@ start_process (void *f_name)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-    //printf("process wait\n");
     struct thread* t = is_valid_tid (child_tid);
-    if (t == NULL || t->status == THREAD_DYING || t->ret_valid == false)
-	goto done;
-
+    struct thread* curr = thread_current();
+    
     if (t->parent != thread_current ())
 	goto done;	
+    
+    sema_down(&(t->wait));
+    
+    if (t == NULL || t->status == THREAD_DYING || curr->ret_valid == false)
+	goto done;
 
-    sema_down(t->wait);
-    printf("%s, exit(%d)\n", t->name, t->ret_status); 
+    printf("%s: exit(%d)\n", t->name, t->ret_valid); 
+    
+    thread_unblock(t);
     return t->ret_status;
 
 done:
+    /*
+    if (t == NULL)
+	printf("ERROR\n");
+    if (t->status == THREAD_DYING)
+	printf("ERROR1\n");
+    if (curr->ret_valid == false)
+	printf("ERROR2\n");
+    if (t->parent != thread_current ())
+	printf("ERROR3\n");
+    */
+    thread_unblock(t);
     return -1; 
 }
 

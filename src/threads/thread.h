@@ -141,7 +141,7 @@ struct thread
     struct list child_list;
     struct list_elem child;
     struct thread* parent;
-    struct semaphore* wait;  
+    struct semaphore wait;  
 
     int ret_status;
     bool ret_valid; //whether thread has been terminated by user or kernel

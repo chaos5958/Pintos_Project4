@@ -319,9 +319,16 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
+  struct thread *t = thread_current();
+  enum intr_level old_level;
+
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
+  sema_up(&(t->wait));
+  old_level = intr_disable();
+  thread_block();
+  intr_set_level (old_level);
   process_exit ();
 #endif
 
@@ -335,8 +342,10 @@ thread_exit (void)
 
   thread_current ()->status = THREAD_DYING;
   
+
   schedule ();
   NOT_REACHED ();
+
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
@@ -663,9 +672,8 @@ init_thread (struct thread *t, const char *name, int priority)
   // team10: proj 2
 #ifdef USERPROG
   list_init (&(t->child_list)); 
-  sema_init (t->wait, 0);
+  sema_init (&(t->wait), 0);
   t->parent = NULL;
-  t->wait = NULL;
   t->ret_valid = false;
 #endif 
 }

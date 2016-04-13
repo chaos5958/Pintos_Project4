@@ -223,7 +223,7 @@ read (int fd, void *buffer, unsigned size)
 static int
 write (int fd, const void *buffer, unsigned size)
 {
-    printf("write\n");
+    //printf("write\n");
     if (fd == 1){
 	putbuf (buffer, size);
 	return size;
