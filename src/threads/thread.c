@@ -337,8 +337,7 @@ thread_exit (void)
   intr_disable ();
   
   //team10 In advanced scheduler, removes elem_cpu of struct thread when thread dies
-  if (thread_mlfqs)
-  	list_remove(&thread_current ()->elem_cpu);
+  list_remove(&thread_current ()->elem_cpu);
 
   thread_current ()->status = THREAD_DYING;
   

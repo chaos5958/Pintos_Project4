@@ -45,7 +45,9 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
   
   char *token, *save_ptr;
-  token = strtok_r (file_name, " ", &save_ptr); 
+  token = strtok_r (file_name, " ", &save_ptr);
+  //token = strtok_r (fn_copy, " ", &save_ptr); 
+  //strlcpy (fn_copy, file_name, PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
@@ -184,7 +186,7 @@ process_wait (tid_t child_tid UNUSED)
     if (t == NULL || t->status == THREAD_DYING || curr->ret_valid == false)
 	goto done;
 
-    printf("%s: exit(%d)\n", t->name, t->ret_valid); 
+    printf("%s: exit(%d)\n", t->name, t->ret_status); 
     
     thread_unblock(t);
     return t->ret_status;
