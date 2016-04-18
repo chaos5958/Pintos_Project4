@@ -206,7 +206,7 @@ exec (const char *file)
 static int
 wait (pid_t pid)
 {
-    //return process_wait ((tid_t)pid);
+    return process_wait ((tid_t)pid);
 }
 
 static bool
