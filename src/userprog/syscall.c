@@ -187,32 +187,36 @@ exit (int status)
     //if parent waits(exists)
     if (t->parent != NULL){
     //give status to parent
-      t->parent->ret_status = status;
       t->parent->ret_valid = true;
     }
+    t->ret_status = status;
     thread_exit();
 }
 
 static pid_t
 exec (const char *file)
 {
-    //pid_t ret = process_execute (file); 
-    printf("exec\n");
-    return 0; 
+    tid_t tid;
+    lock_acquire (&file_lock);
+    tid = process_execute (file);
+    lock_release (&file_lock);
+    return (pid_t) tid;
 }
 
 static int
 wait (pid_t pid)
 {
-    printf("wait\n");
-    return 0;
+    return process_wait ((tid_t)pid);
 }
 
 static bool
 create (const char *file, unsigned initial_size)
 {
-    if (!is_user_vaddr (file) || file == NULL)
+    if (!is_user_vaddr (file) || file == NULL
+	    || !pagedir_get_page (thread_current ()->pagedir, file))
+    {
 	exit (-1);
+    }
 
     return filesys_create (file, initial_size);
 }
@@ -228,8 +232,10 @@ static int
 open (const char *file)
 {
     int ret = -1; 
-    if (!is_user_vaddr (file) || file == NULL)
+    if (!is_user_vaddr (file) || file == NULL ||
+	    !pagedir_get_page (thread_current ()->pagedir, file))
 	exit (-1);
+
     struct file* file_ = filesys_open (file);
     if (file_ == NULL) 
 	goto done; 
@@ -278,7 +284,8 @@ read (int fd, void *buffer, unsigned size)
     struct file* file = NULL;
     struct file_fd* file_fd; 
     struct list_elem* el;
-    if (!is_user_vaddr (buffer) || !is_user_vaddr (buffer + size) || buffer == NULL)
+    if (!is_user_vaddr (buffer + size) 
+	    || buffer == NULL || !pagedir_get_page (thread_current ()->pagedir, buffer)) 
 	exit (-1);
 
     lock_acquire (&file_lock);
@@ -328,7 +335,8 @@ write (int fd, const void *buffer, unsigned size)
     struct file_fd* file_fd; 
     struct list_elem* el;
 
-    if (!is_user_vaddr (buffer) || !is_user_vaddr (buffer + size) || buffer == NULL)
+    if (!is_user_vaddr (buffer + size) || buffer == NULL
+	    || !pagedir_get_page (thread_current ()->pagedir, buffer))
 	exit (-1);
 
     lock_acquire (&file_lock);
