@@ -6,8 +6,25 @@
 
 //team 10
 #include "threads/vaddr.h"
+#include "userprog/process.h"
+#include "threads/malloc.h"
+#include "threads/palloc.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+#include "threads/synch.h"
 
 typedef int pid_t;
+#define FD_START 0 
+
+struct file_fd 
+{
+    struct file* file;
+    int fd;
+    struct list_elem fd_elem;
+};
+
+static struct list file_list;
+static struct lock file_lock; 
 
 static void syscall_handler (struct intr_frame *);
 
@@ -25,11 +42,15 @@ static void seek (int fd, unsigned position);
 static unsigned tell (int fd);
 static void close (int fd);
 
+static int get_fd (void);
+
 
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  list_init (&file_list);
+  lock_init (&file_lock);
 }
 
 static void
@@ -44,6 +65,7 @@ syscall_handler (struct intr_frame *f)
       goto done;
  
   switch (*ptr)
+
   {
       case SYS_HALT: halt();
 		     break;
@@ -106,7 +128,7 @@ syscall_handler (struct intr_frame *f)
 			     || !is_user_vaddr (ptr + 3))
 			 goto done;
 		     else{
-			 int ret = read (*(ptr + 1), ptr + 2, *(ptr + 3));
+			 int ret = read (*(ptr + 1), *(ptr + 2), *(ptr + 3));
 			 f->eax = ret;
 			 break;
 		     }
@@ -155,7 +177,7 @@ done:
 static void
 halt (void) 
 {
-    printf("halt\n");
+    power_off();
 }
 
 static void
@@ -174,8 +196,9 @@ exit (int status)
 static pid_t
 exec (const char *file)
 {
-    printf("halt\n");
-    return 0;
+    //pid_t ret = process_execute (file); 
+    printf("exec\n");
+    return 0; 
 }
 
 static int
@@ -188,8 +211,10 @@ wait (pid_t pid)
 static bool
 create (const char *file, unsigned initial_size)
 {
-    printf("create\n");
-    return 0;
+    if (!is_user_vaddr (file) || file == NULL)
+	exit (-1);
+
+    return filesys_create (file, initial_size);
 }
 
 static bool
@@ -202,22 +227,91 @@ remove (const char *file)
 static int
 open (const char *file)
 {
-    printf("open\n");
-    return 0;
+    int ret = -1; 
+    if (!is_user_vaddr (file) || file == NULL)
+	exit (-1);
+    struct file* file_ = filesys_open (file);
+    if (file_ == NULL) 
+	goto done; 
+
+    struct file_fd* fd_ = (struct file_fd*) malloc (sizeof (struct file_fd));
+    if (fd_ == NULL)
+	goto done;
+
+    fd_->file = file_; 
+    fd_->fd = get_fd();
+    list_push_back (&file_list, &fd_->fd_elem);
+    
+    ret = fd_->fd; 
+
+done:
+   return ret;
+
 }
 
 static int
 filesize (int fd) 
 {
-    printf("filesize\n");
-    return 0;
+    int ret = -1;
+    struct file_fd* file_fd; 
+    struct list_elem* el;
+
+    for (el = list_begin (&file_list); el != list_end (&file_list);
+	   el = list_next (el))
+    	{
+	    file_fd = list_entry (el, struct file_fd, fd_elem);
+    	    if (file_fd->fd == fd && file_fd->file != NULL)
+	    {
+            	ret = file_length (file_fd->file);
+	    }
+
+       }
+
+    return ret;
 }
 
 static int
 read (int fd, void *buffer, unsigned size)
 {
-    printf("read\n");
-    return 0;
+    int ret = -1;
+    int iteration; 
+    struct file* file = NULL;
+    struct file_fd* file_fd; 
+    struct list_elem* el;
+    if (!is_user_vaddr (buffer) || !is_user_vaddr (buffer + size) || buffer == NULL)
+	exit (-1);
+
+    lock_acquire (&file_lock);
+    if (fd == STDIN_FILENO)
+    {
+	for (iteration = 0; iteration < size; iteration++)
+	{
+	   ((uint8_t *) buffer)[iteration] = input_getc();
+	}
+       	ret = size; 	
+	goto done;
+    }
+
+    else if (fd == STDOUT_FILENO)
+	goto done;
+
+    else{
+       	for (el = list_begin (&file_list); el != list_end (&file_list);
+	   el = list_next (el))
+    	{
+	    file_fd  = list_entry (el, struct file_fd, fd_elem);
+    	    if (file_fd->fd == fd && file_fd->file != NULL)
+	    {
+            	ret = file_read (file_fd->file, buffer, size);
+		goto done;
+	    }
+
+       }
+    }
+
+
+done:
+    return ret;
 }
 
 static int
@@ -228,9 +322,41 @@ write (int fd, const void *buffer, unsigned size)
 	putbuf (buffer, size);
 	return size;
     }
+    int ret = -1;
+    int iteration; 
+    struct file* file = NULL;
+    struct file_fd* file_fd; 
+    struct list_elem* el;
 
+    if (!is_user_vaddr (buffer) || !is_user_vaddr (buffer + size) || buffer == NULL)
+	exit (-1);
 
-    return 0;
+    lock_acquire (&file_lock);
+    if (fd == STDIN_FILENO)
+	goto done;
+
+    else if (fd == STDOUT_FILENO)
+    {
+	putbuf (buffer, size);
+	ret = size;
+    }
+
+    else{
+       	for (el = list_begin (&file_list); el != list_end (&file_list);
+	   el = list_next (el))
+    	{
+	    file_fd  = list_entry (el, struct file_fd, fd_elem);
+    	    if (file_fd->fd == fd && file_fd->file != NULL)
+	    {
+            	ret = file_write (file_fd->file, buffer, size);
+		goto done;
+	    }
+
+       }
+    }
+
+done:
+    return ret;
 }
 
 static void
@@ -250,6 +376,28 @@ tell (int fd)
 static void
 close (int fd)
 {
-    printf("close\n");
+    struct file_fd* fd_ = NULL;
+    struct list_elem* el;
+
+    for (el = list_begin (&file_list); el != list_end (&file_list);
+	   el = list_next (el))
+    	{
+	    fd_ = list_entry (el, struct file_fd, fd_elem);
+    	    if (fd_->fd == fd && fd_->file != NULL)
+	    {		
+		list_remove (el);
+		file_close (fd_->file);
+		free (fd_);
+		break;
+	    }
+	}
+
 }
 
+static int
+get_fd (void)
+{
+    static int current_fd = 2; 
+    current_fd++; 
+    return current_fd - 1;
+}
