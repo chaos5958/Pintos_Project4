@@ -71,7 +71,7 @@ process_execute (const char *file_name)
   /* team10: If the process is not loaded, return TID_ERROR, and wait until the thread is killed; we must wait here, since we give TID_ERROR to user, which makes user unable to wait for the process. */
   if (t->ret_status == -1){
     tid = TID_ERROR;
-    thread_unblock(t);
+    //thread_unblock(t);
     process_wait (t->tid);
   }
 
