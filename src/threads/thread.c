@@ -204,7 +204,7 @@ thread_create (const char *name, int priority,
 
   /* Initialize thread. */
   init_thread (t, name, priority);
-  tid = t->tid = allocate_tid ();
+  tid = t->tid = allocate_tid ();  
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -234,8 +234,7 @@ thread_create (const char *name, int priority,
   // team10: if created thread priority is higher than current, execute thread_yield
   if (priority > thread_current ()->priority)
      thread_yield ();
- 
- 
+   
   return tid;
 }
 
@@ -336,7 +335,7 @@ thread_exit (void)
      We will be destroyed during the call to schedule_tail(). */
   intr_disable ();
   
-  //team10 In advanced scheduler, removes elem_cpu of struct thread when thread dies
+  //team10: Removes elem_cpu of struct thread when thread dies
   list_remove(&thread_current ()->elem_cpu);
 
   thread_current ()->status = THREAD_DYING;

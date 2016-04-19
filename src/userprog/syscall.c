@@ -197,9 +197,14 @@ static pid_t
 exec (const char *file)
 {
     tid_t tid;
+
+    if (!is_user_vaddr (file) || file == NULL
+	    || !pagedir_get_page (thread_current ()->pagedir, file))
+      exit(-1);
     lock_acquire (&file_lock);
-    tid = process_execute (file);
+    tid = process_execute (file);    
     lock_release (&file_lock);
+
     return (pid_t) tid;
 }
 
