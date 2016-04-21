@@ -163,7 +163,6 @@ start_process (void *f_name)
     t->ret_status = -1;
     thread_exit ();
   }
-
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -200,7 +199,6 @@ process_wait (tid_t child_tid UNUSED)
 	goto done;	
 
     sema_down(&(t->wait));
-
     if (curr->ret_valid == false)
 	goto done;
     
@@ -223,6 +221,7 @@ void
 process_exit (void)
 {
   struct thread *curr = thread_current ();
+  struct file_fd *f_fd;  
   uint32_t *pd;
   enum intr_level old_level;
   int i;
@@ -234,6 +233,15 @@ process_exit (void)
   old_level = intr_disable ();
   thread_block ();
   intr_set_level (old_level);
+
+  /*
+  while (!list_empty (&curr->open_file))
+  {
+      f_fd = list_entry (list_pop_front (&curr->open_file), struct file_fd, fd_thread);
+      file_close (f_fd->file);
+      free (f_fd);
+  }
+  */
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

@@ -21,6 +21,7 @@ struct file_fd
     struct file* file;
     int fd;
     struct list_elem fd_elem;
+    struct list_elem fd_thread; 
 };
 
 static struct list file_list;
@@ -41,6 +42,7 @@ static int write (int fd, const void *buffer, unsigned length);
 static void seek (int fd, unsigned position);
 static unsigned tell (int fd);
 static void close (int fd);
+static struct file* find_file (int fd); 
 
 static int get_fd (void);
 
@@ -61,9 +63,12 @@ syscall_handler (struct intr_frame *f)
   if (!is_user_vaddr (ptr))  
       goto done;
   
+  if (!pagedir_get_page (thread_current ()->pagedir, ptr))
+      goto done;
+
   if (*ptr < SYS_HALT || *ptr > SYS_INUMBER)
       goto done;
- 
+
   switch (*ptr)
 
   {
@@ -71,10 +76,10 @@ syscall_handler (struct intr_frame *f)
 		     break;
       case SYS_EXIT: if (!is_user_vaddr (ptr + 1))
     			 goto done;
-		 else{
+		     else{
 		     exit (*(ptr + 1));
 		     break;
-		 }
+     		     }
 
       case SYS_EXEC: if (!is_user_vaddr (ptr + 1))
 			 goto done;
@@ -124,7 +129,7 @@ syscall_handler (struct intr_frame *f)
 			     break;
 			 }
 
-      case SYS_READ: if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2)
+      case SYS_READ:  if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2)
 			     || !is_user_vaddr (ptr + 3))
 			 goto done;
 		     else{
@@ -133,9 +138,10 @@ syscall_handler (struct intr_frame *f)
 			 break;
 		     }
 
-      case SYS_WRITE: if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2)
+      case SYS_WRITE:  
+		       if (!is_user_vaddr (ptr + 1) || !is_user_vaddr (ptr + 2)
 			      || !is_user_vaddr (ptr + 3))
-			  goto done;
+ 			   goto done;		        
 		      else{
 			  int ret = write (*(ptr + 1), *(ptr + 2), *(ptr + 3));
 			  f->eax = ret;
@@ -164,14 +170,9 @@ syscall_handler (struct intr_frame *f)
 			   break;
 		       }
   }
-
-  //thread_exit();
   return ;
-
 done:
-  printf("unvalid vaddr\n");
-  return; 
-  //////////////////LATER, CHANGE TO EXIT 
+  exit (-1);
 }
 
 static void
@@ -180,9 +181,11 @@ halt (void)
     power_off();
 }
 
-static void
-exit (int status)
-{
+//static void
+
+void
+exit_ext (int status)
+{ 
     struct thread* t = thread_current();
     //if parent waits(exists)
     if (t->parent != NULL){
@@ -193,14 +196,27 @@ exit (int status)
     thread_exit();
 }
 
+static void
+exit (int status)
+{ 
+    struct thread* t = thread_current();
+    //if parent waits(exists)
+    if (t->parent != NULL){
+    //give status to parent
+      t->parent->ret_valid = true;
+    }
+    t->ret_status = status;
+    thread_exit();
+}
 static pid_t
 exec (const char *file)
 {
     tid_t tid;
 
-    if (!is_user_vaddr (file) || file == NULL
-	    || !pagedir_get_page (thread_current ()->pagedir, file))
-      exit(-1);
+//    if (!is_user_vaddr (file) || file == NULL
+//	    || !pagedir_get_page (thread_current ()->pagedir, file))
+    if (file == NULL || !pagedir_get_page (thread_current ()->pagedir, file) || !is_user_vaddr (file))
+      	exit(-1);
     lock_acquire (&file_lock);
     tid = process_execute (file);    
     lock_release (&file_lock);
@@ -217,11 +233,11 @@ wait (pid_t pid)
 static bool
 create (const char *file, unsigned initial_size)
 {
-    if (!is_user_vaddr (file) || file == NULL
-	    || !pagedir_get_page (thread_current ()->pagedir, file))
-    {
+//    if (!is_user_vaddr (file) || file == NULL
+//	    || !pagedir_get_page (thread_current ()->pagedir, file))
+      if(file == NULL || !pagedir_get_page (thread_current ()->pagedir, file))  
 	exit (-1);
-    }
+    
 
     return filesys_create (file, initial_size);
 }
@@ -237,8 +253,9 @@ static int
 open (const char *file)
 {
     int ret = -1; 
-    if (!is_user_vaddr (file) || file == NULL ||
-	    !pagedir_get_page (thread_current ()->pagedir, file))
+//    if (!is_user_vaddr (file) || file == NULL ||
+//	    !pagedir_get_page (thread_current ()->pagedir, file))
+    if(file == NULL || !pagedir_get_page (thread_current ()->pagedir, file))
 	exit (-1);
 
     struct file* file_ = filesys_open (file);
@@ -252,7 +269,7 @@ open (const char *file)
     fd_->file = file_; 
     fd_->fd = get_fd();
     list_push_back (&file_list, &fd_->fd_elem);
-    
+    list_push_back (&thread_current()->open_file, &fd_->fd_thread);
     ret = fd_->fd; 
 
 done:
@@ -289,9 +306,12 @@ read (int fd, void *buffer, unsigned size)
     struct file* file = NULL;
     struct file_fd* file_fd; 
     struct list_elem* el;
-    if (!is_user_vaddr (buffer + size) 
-	    || buffer == NULL || !pagedir_get_page (thread_current ()->pagedir, buffer)) 
-	exit (-1);
+
+    //    if (!is_user_vaddr (buffer + size) 
+//	    || buffer == NULL || !pagedir_get_page (thread_current ()->pagedir, buffer))
+     
+    if (buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer))
+    	exit (-1);
 
     lock_acquire (&file_lock);
     if (fd == STDIN_FILENO)
@@ -308,6 +328,7 @@ read (int fd, void *buffer, unsigned size)
 	goto done;
 
     else{
+	
        	for (el = list_begin (&file_list); el != list_end (&file_list);
 	   el = list_next (el))
     	{
@@ -319,6 +340,12 @@ read (int fd, void *buffer, unsigned size)
 	    }
 
        }
+       /*
+	if ((file = find_file (fd)) == NULL)
+	    goto done;
+	else
+	    ret = file_read (file, buffer, size);	
+	    */
     }
 
 
@@ -330,20 +357,23 @@ done:
 static int
 write (int fd, const void *buffer, unsigned size)
 {
-    //printf("write\n");
-    if (fd == 1){
-	putbuf (buffer, size);
-	return size;
-    }
     int ret = -1;
     int iteration; 
     struct file* file = NULL;
     struct file_fd* file_fd; 
     struct list_elem* el;
 
-    if (!is_user_vaddr (buffer + size) || buffer == NULL
-	    || !pagedir_get_page (thread_current ()->pagedir, buffer))
-	exit (-1);
+    //exit (-1);
+    //    if (!is_user_vaddr (buffer + size) || buffer == NULL
+//	    || !pagedir_get_page (thread_current ()->pagedir, buffer))
+    if(buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer + size)) 
+      	  exit (-1);
+
+    if (fd == 1){
+	putbuf (buffer, size);
+	return size;
+        	
+    }
 
     lock_acquire (&file_lock);
     if (fd == STDIN_FILENO)
@@ -356,6 +386,7 @@ write (int fd, const void *buffer, unsigned size)
     }
 
     else{
+	
        	for (el = list_begin (&file_list); el != list_end (&file_list);
 	   el = list_next (el))
     	{
@@ -367,6 +398,13 @@ write (int fd, const void *buffer, unsigned size)
 	    }
 
        }
+	/*	
+	if ((file = find_file (fd)) == NULL)
+	    goto done;
+	else
+	    ret = file_write (file, buffer, size);
+
+	*/
     }
 
 done:
@@ -392,8 +430,23 @@ static void
 close (int fd)
 {
     struct file_fd* fd_ = NULL;
+    struct thread* curr = thread_current();
     struct list_elem* el;
+    
+    for (el = list_begin (&curr->open_file) ;  el != list_end (&curr->open_file) ;
+	     el = list_next (el))
+    {
+	fd_ = list_entry (el, struct file_fd, fd_thread);
+	if (fd_->fd == fd) 
+	    break; 
+	else
+	    fd_ = NULL;
+    }
 
+    if (fd_ == NULL) 
+	exit (-1);
+
+    /*
     for (el = list_begin (&file_list); el != list_end (&file_list);
 	   el = list_next (el))
     	{
@@ -406,6 +459,30 @@ close (int fd)
 		break;
 	    }
 	}
+	
+    
+    for (el = list_begin (&curr->open_file); el != list_end (&curr->open_file);
+	   el = list_next (el))
+    	{
+	    fd_ = list_entry (el, struct file_fd, fd_thread);
+    	    if (fd_->fd == fd && fd_->file != NULL)
+	    {		
+		list_remove (el);
+		file_close (fd_->file);
+		free (fd_);
+		return ; 
+	    }
+
+	    else if (fd_->fd == fd && fd_->file == NULL)
+		exit (-1);
+	}
+    exit (-1);
+    */
+
+    list_remove (&fd_->fd_elem);
+    list_remove (&fd_->fd_thread);
+    file_close (fd_->file);
+    free (fd_);
 
 }
 
@@ -416,3 +493,19 @@ get_fd (void)
     current_fd++; 
     return current_fd - 1;
 }
+
+static struct file* find_file (int fd)
+{
+    struct list_elem* el;
+    struct thread* curr = thread_current ();
+    struct file_fd* f_fd; 
+    for (el = list_begin (&curr->open_file) ;  el != list_end (&curr->open_file) ;
+	     el = list_next (el))
+    {
+	f_fd = list_entry (el, struct file_fd, fd_thread);
+	if (f_fd == fd)
+	    return f_fd->file;
+    }
+    return NULL;
+}
+

@@ -138,6 +138,7 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 
+    struct list open_file; 
     struct list child_list;
     struct list_elem child;
     struct thread* parent;
