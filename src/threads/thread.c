@@ -670,6 +670,7 @@ init_thread (struct thread *t, const char *name, int priority)
   // team10: proj 2
 #ifdef USERPROG
   list_init (&(t->child_list)); 
+  list_init (&(t->open_file));
   sema_init (&(t->wait), 0);
   t->parent = NULL;
   t->ret_valid = false;
