@@ -323,6 +323,7 @@ read (int fd, void *buffer, unsigned size)
 
 
 done:
+    lock_release (&file_lock);
     return ret;
 }
 
@@ -369,6 +370,7 @@ write (int fd, const void *buffer, unsigned size)
     }
 
 done:
+    lock_release (&file_lock);
     return ret;
 }
 

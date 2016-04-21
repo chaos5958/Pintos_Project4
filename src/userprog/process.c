@@ -191,36 +191,31 @@ process_wait (tid_t child_tid UNUSED)
 {
     struct thread* t = is_valid_tid (child_tid);
     struct thread* curr = thread_current();
-    
-    if (t == NULL)
-	return -1;
+    int ret = -1;
+
+    if (t == NULL || t->status == THREAD_DYING || t->past_exit == true)
+	goto done;
 
     if (t->parent != thread_current ())
 	goto done;	
-    
-    sema_down(&(t->wait));    
-    
-    if (t == NULL || t->status == THREAD_DYING || curr->ret_valid == false)
-	goto done;
 
-    printf("%s: exit(%d)\n", t->name, t->ret_status); 
-        
-    thread_unblock(t);
-    return t->ret_status;
+    sema_down(&(t->wait));
 
-done:
-    /*
-    if (t == NULL)
-	printf("ERROR\n");
-    if (t->status == THREAD_DYING)
-	printf("ERROR1\n");
     if (curr->ret_valid == false)
-	printf("ERROR2\n");
-    if (t->parent != thread_current ())
-	printf("ERROR3\n");
-    */
-    thread_unblock(t);
-    return -1; 
+	goto done;
+    
+    printf("%s: exit(%d)\n", t->name, t->ret_status); 
+   
+    ret = t->ret_status;
+    t->past_exit = true;
+
+    if (t->status == THREAD_BLOCKED)
+      	thread_unblock(t);
+   
+done:
+    //printf("%s: exit(%d)\n", t->name, t->ret_status); 
+ 
+    return ret; 
 }
 
 /* Free the current process's resources. */
@@ -229,9 +224,20 @@ process_exit (void)
 {
   struct thread *curr = thread_current ();
   uint32_t *pd;
+  enum intr_level old_level;
+  int i;
+
+  sema_up (&curr->wait);
+  for( i = 0; i < list_size (&curr->wait.waiters); i++)
+        sema_up (&(curr->wait));
+
+  old_level = intr_disable ();
+  thread_block ();
+  intr_set_level (old_level);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
+  
   pd = curr->pagedir;
   if (pd != NULL) 
     {

@@ -318,16 +318,16 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
-  struct thread *t = thread_current();
-  enum intr_level old_level;
-
+  //struct thread *t = thread_current();
+  //enum intr_level old_level;
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
-  sema_up(&(t->wait));
-  old_level = intr_disable();
-  thread_block();
-  intr_set_level (old_level);
+
+  //sema_up(&(t->wait));
+  //old_level = intr_disable();
+  //thread_block();
+  //intr_set_level (old_level);
   process_exit ();
 #endif
 
@@ -673,6 +673,7 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init (&(t->wait), 0);
   t->parent = NULL;
   t->ret_valid = false;
+  t->past_exit = false;
 #endif 
 }
 
