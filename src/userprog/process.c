@@ -33,31 +33,49 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+  char *fn_copy, *strtok_copy;
   tid_t tid;
   struct thread *t;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
+  strtok_copy = malloc (strlen (file_name) + 1);
   if (fn_copy == NULL)
     return TID_ERROR;
+  if (strtok_copy == NULL)
+    return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy (strtok_copy, file_name, PGSIZE);
   
+  /* team 10: Parse the name of process. */
   char *token, *save_ptr;
-  token = strtok_r (file_name, " ", &save_ptr);
-  //token = strtok_r (fn_copy, " ", &save_ptr); 
-  //strlcpy (fn_copy, file_name, PGSIZE);
+  token = strtok_r (strtok_copy, " ", &save_ptr);
 
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  /* team 10 modified: Create a new thread to execute TOKEN(FILE_NAME). */
+  tid = thread_create (token, PRI_DEFAULT, start_process, fn_copy);
   
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
-  
-  //team10
+  if (tid == TID_ERROR){
+    palloc_free_page (fn_copy);
+  }  
+
+  //team10: get thread of tid
   t = is_valid_tid (tid);
+
+  //team10: put the parent of the thread
   t->parent = thread_current();
+
+  /*wait until process is loaded on the thread*/
+  sema_down (&t -> wait);
+
+  /* team10: If the process is not loaded, return TID_ERROR, and wait until the thread is killed; we must wait here, since we give TID_ERROR to user, which makes user unable to wait for the process. */
+  if (t->ret_status == -1){
+    tid = TID_ERROR;
+    //thread_unblock(t);
+    process_wait (t->tid);
+  }
+
+  free(strtok_copy);
 
   return tid;
 
@@ -81,7 +99,11 @@ start_process (void *f_name)
   int argc = 0;
   void* start;
   int i;
- 
+
+  struct thread *t;
+
+  t = thread_current();
+
   for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
 	  token = strtok_r (NULL, " ", &save_ptr))
   {
@@ -97,21 +119,17 @@ start_process (void *f_name)
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
-  if_.eflags = FLAG_IF | FLAG_MBS;
+  if_.eflags = FLAG_IF | FLAG_MBS;  
   success = load (file_name, &if_.eip, &if_.esp);
 
+  //team 10: let process_execute run and finish its job.
+  sema_up (&t->wait);
 
-  //printf("after load\n");
-
-  //team 10
   if (success)
   {
       start = if_.esp;
-      //printf("start: %p, remainder %d\n", if_.esp, length % 4);
-      //printf("file name; %s\n", file_name);
       if_.esp = if_.esp - length; 
       memcpy (if_.esp, file_name, length);
-      //printf("current sp: %p, string: %s\n", if_.esp, (char *)if_.esp);
          
       for (i = 0 ; i < 4 - length % 4 ; i++)
       {
@@ -127,9 +145,6 @@ start_process (void *f_name)
      { 
 	 if_.esp -= 4;
 	 *(char **)if_.esp = (char *)(start - length -  argv_addr[i]); 
-	 
-	 //printf("result: is_.esp: %p\n", *(char **)if_.esp);
-	 //printf("result: string: %s\n", *(char **)if_.esp);
      }
      
      if_.esp -= 4;
@@ -137,18 +152,17 @@ start_process (void *f_name)
 
      if_.esp -= sizeof(int);
      *(int *)if_.esp = argc;
-     //printf("test: %d\n", *(int *)if_.esp);
 
      if_.esp -= 4;
      *(int *)if_.esp = 0;
-     
-      //hex_dump(0, if_.esp, (uintptr_t)start - (uintptr_t)if_.esp, true);
   }
 
-  /* If load failed, quit. */
+  /* If load failed, quit and record return status -1 */
   palloc_free_page (file_name);
-  if (!success) 
+  if (!success){
+    t->ret_status = -1;
     thread_exit ();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -178,16 +192,19 @@ process_wait (tid_t child_tid UNUSED)
     struct thread* t = is_valid_tid (child_tid);
     struct thread* curr = thread_current();
     
+    if (t == NULL)
+	return -1;
+
     if (t->parent != thread_current ())
 	goto done;	
     
-    sema_down(&(t->wait));
+    sema_down(&(t->wait));    
     
     if (t == NULL || t->status == THREAD_DYING || curr->ret_valid == false)
 	goto done;
 
     printf("%s: exit(%d)\n", t->name, t->ret_status); 
-    
+        
     thread_unblock(t);
     return t->ret_status;
 
