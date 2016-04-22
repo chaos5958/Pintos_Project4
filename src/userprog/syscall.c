@@ -362,17 +362,16 @@ write (int fd, const void *buffer, unsigned size)
     struct file* file = NULL;
     struct file_fd* file_fd; 
     struct list_elem* el;
-
+    
     //exit (-1);
     //    if (!is_user_vaddr (buffer + size) || buffer == NULL
 //	    || !pagedir_get_page (thread_current ()->pagedir, buffer))
     if(buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer + size)) 
       	  exit (-1);
 
-    if (fd == 1){
+    if (fd == 1) {
 	putbuf (buffer, size);
 	return size;
-        	
     }
 
     lock_acquire (&file_lock);
@@ -384,7 +383,7 @@ write (int fd, const void *buffer, unsigned size)
 	putbuf (buffer, size);
 	ret = size;
     }
-
+    
     else{
 	
        	for (el = list_begin (&file_list); el != list_end (&file_list);

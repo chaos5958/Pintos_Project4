@@ -102,6 +102,8 @@ start_process (void *f_name)
 
   struct thread *t;
 
+  struct file* file;
+
   t = thread_current();
 
   for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
@@ -127,6 +129,9 @@ start_process (void *f_name)
 
   if (success)
   {
+      file = filesys_open (file_name);
+      t->execute_file = file;
+      file_deny_write (t->execute_file);//deny writing to executable running this process
       start = if_.esp;
       if_.esp = if_.esp - length; 
       memcpy (if_.esp, file_name, length);
@@ -229,6 +234,7 @@ process_exit (void)
   sema_up (&curr->wait);
   for( i = 0; i < list_size (&curr->wait.waiters); i++)
         sema_up (&(curr->wait));
+  file_close (curr->execute_file);//close the executable of this process
 
   old_level = intr_disable ();
   thread_block ();
