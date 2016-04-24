@@ -102,8 +102,6 @@ start_process (void *f_name)
 
   struct thread *t;
 
-  struct file* file;
-
   t = thread_current();
 
   for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
@@ -129,9 +127,11 @@ start_process (void *f_name)
 
   if (success)
   {
-      file = filesys_open (file_name);
-      t->execute_file = file;
+      printf("  START_PROCESS: OPEN FILE\n");
+      t->execute_file = filesys_open (file_name);
+      printf("  START_PROCESS: FILE %d DENY WRITE\n", t->execute_file);
       file_deny_write (t->execute_file);//deny writing to executable running this process
+      printf("  START_PROCESS: DENIED WRITE\n");
       start = if_.esp;
       if_.esp = if_.esp - length; 
       memcpy (if_.esp, file_name, length);
@@ -374,7 +374,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  printf("  LOAD: OPENING FILE\n");
   file = filesys_open (file_name);
+  printf("  LOAD: OPENED FILE %d\n", file);
+  file_deny_write(file);
+  printf("  LOAD: DENIED FILE\n"); 
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
