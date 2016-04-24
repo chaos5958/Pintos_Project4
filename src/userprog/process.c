@@ -127,11 +127,12 @@ start_process (void *f_name)
 
   if (success)
   {
-      printf("  START_PROCESS: OPEN FILE\n");
+      //printf("  START_PROCESS: OPEN FILE\n");
       t->execute_file = filesys_open (file_name);
-      printf("  START_PROCESS: FILE %d DENY WRITE\n", t->execute_file);
-      file_deny_write (t->execute_file);//deny writing to executable running this process
-      printf("  START_PROCESS: DENIED WRITE\n");
+      if (t->execute_file != NULL)
+	  file_deny_write (t->execute_file);//deny writing to executable running this process
+      //file_deny_write (filessys_open (file_name));
+      //printf("  START_PROCESS: DENIED WRITE\n");
       start = if_.esp;
       if_.esp = if_.esp - length; 
       memcpy (if_.esp, file_name, length);
@@ -234,7 +235,9 @@ process_exit (void)
   sema_up (&curr->wait);
   for( i = 0; i < list_size (&curr->wait.waiters); i++)
         sema_up (&(curr->wait));
+  
   file_close (curr->execute_file);//close the executable of this process
+  curr->execute_file = NULL;
 
   old_level = intr_disable ();
   thread_block ();
@@ -373,15 +376,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-  /* Open executable file. */
-  printf("  LOAD: OPENING FILE\n");
+  /* open executable file. */
   file = filesys_open (file_name);
-  printf("  LOAD: OPENED FILE %d\n", file);
-  file_deny_write(file);
-  printf("  LOAD: DENIED FILE\n"); 
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
+      //printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
 

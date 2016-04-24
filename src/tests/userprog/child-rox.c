@@ -21,7 +21,6 @@ try_write (void)
   quiet = true;
   CHECK ((handle = open ("child-rox")) > 1, "open \"child-rox\"");
   quiet = false;
-
   CHECK (write (handle, buffer, sizeof buffer) == 0,
          "try to write \"child-rox\"");
   

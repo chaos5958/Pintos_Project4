@@ -386,7 +386,7 @@ write (int fd, const void *buffer, unsigned size)
     }
     
     else{
-	/*
+
        	for (el = list_begin (&file_list); el != list_end (&file_list);
 	   el = list_next (el))
     	{
@@ -398,16 +398,7 @@ write (int fd, const void *buffer, unsigned size)
 	    }
 
        }
-	/*	
-	if ((file = find_file (fd)) == NULL)
-	    goto done;
-	else
-	    ret = file_write (file, buffer, size);
-
-	*/
-	file = find_file (fd);
-	if (file != NULL)
-	  ret = file_write (file, buffer, size);
+		
     }
 
 done:
