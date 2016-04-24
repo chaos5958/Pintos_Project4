@@ -362,17 +362,17 @@ write (int fd, const void *buffer, unsigned size)
     struct file* file = NULL;
     struct file_fd* file_fd; 
     struct list_elem* el;
-
+        
     //exit (-1);
     //    if (!is_user_vaddr (buffer + size) || buffer == NULL
 //	    || !pagedir_get_page (thread_current ()->pagedir, buffer))
-    if(buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer + size)) 
+    if(buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer + size)) {
       	  exit (-1);
+    }
 
-    if (fd == 1){
+    if (fd == 1) {
 	putbuf (buffer, size);
 	return size;
-        	
     }
 
     lock_acquire (&file_lock);
@@ -384,9 +384,9 @@ write (int fd, const void *buffer, unsigned size)
 	putbuf (buffer, size);
 	ret = size;
     }
-
+    
     else{
-	
+
        	for (el = list_begin (&file_list); el != list_end (&file_list);
 	   el = list_next (el))
     	{
@@ -398,13 +398,7 @@ write (int fd, const void *buffer, unsigned size)
 	    }
 
        }
-	/*	
-	if ((file = find_file (fd)) == NULL)
-	    goto done;
-	else
-	    ret = file_write (file, buffer, size);
-
-	*/
+		
     }
 
 done:
@@ -415,8 +409,9 @@ done:
 static void
 seek (int fd, unsigned position) 
 {
-    printf("seek\n");
-    return 0;
+  struct file* file = find_file (fd);
+
+  file_seek (file, position);
 }
 
 static unsigned
@@ -499,13 +494,15 @@ static struct file* find_file (int fd)
     struct list_elem* el;
     struct thread* curr = thread_current ();
     struct file_fd* f_fd; 
-    for (el = list_begin (&curr->open_file) ;  el != list_end (&curr->open_file) ;
-	     el = list_next (el))
+    for (el = list_begin (&file_list);  el != list_end (&file_list);
+	 el = list_next (el))
     {
-	f_fd = list_entry (el, struct file_fd, fd_thread);
-	if (f_fd == fd)
+	f_fd = list_entry (el, struct file_fd, fd_elem);
+	if (f_fd->fd == fd)
 	    return f_fd->file;
+	else
+	    return NULL;
     }
-    return NULL;
 }
+
 

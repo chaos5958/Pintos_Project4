@@ -36,7 +36,7 @@ process_execute (const char *file_name)
   char *fn_copy, *strtok_copy;
   tid_t tid;
   struct thread *t;
-
+  
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -127,6 +127,12 @@ start_process (void *f_name)
 
   if (success)
   {
+      //printf("  START_PROCESS: OPEN FILE\n");
+      t->execute_file = filesys_open (file_name);
+      if (t->execute_file != NULL)
+	  file_deny_write (t->execute_file);//deny writing to executable running this process
+      //file_deny_write (filessys_open (file_name));
+      //printf("  START_PROCESS: DENIED WRITE\n");
       start = if_.esp;
       if_.esp = if_.esp - length; 
       memcpy (if_.esp, file_name, length);
@@ -229,6 +235,9 @@ process_exit (void)
   sema_up (&curr->wait);
   for( i = 0; i < list_size (&curr->wait.waiters); i++)
         sema_up (&(curr->wait));
+  
+  file_close (curr->execute_file);//close the executable of this process
+  curr->execute_file = NULL;
 
   old_level = intr_disable ();
   thread_block ();
@@ -367,11 +376,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-  /* Open executable file. */
+  /* open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
+      //printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
 

@@ -138,6 +138,7 @@ inode_open (disk_sector_t sector)
   inode->deny_write_cnt = 0;
   inode->removed = false;
   disk_read (filesys_disk, inode->sector, &inode->data);
+  //printf("    INODE_OPEN: INODE %d DENY %d\n", inode, inode->deny_write_cnt);
   return inode;
 }
 
@@ -261,7 +262,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
   uint8_t *bounce = NULL;
-
+  //printf("  INODE_WRITE_AT: INODE %d DENY %d\n", inode, inode->deny_write_cnt);
   if (inode->deny_write_cnt)
     return 0;
 
@@ -323,6 +324,7 @@ void
 inode_deny_write (struct inode *inode) 
 {
   inode->deny_write_cnt++;
+  //printf("    INODE_DENY_WRITE: INODE %d DENY %d\n", inode, inode->deny_write_cnt);
   ASSERT (inode->deny_write_cnt <= inode->open_cnt);
 }
 
@@ -335,6 +337,7 @@ inode_allow_write (struct inode *inode)
   ASSERT (inode->deny_write_cnt > 0);
   ASSERT (inode->deny_write_cnt <= inode->open_cnt);
   inode->deny_write_cnt--;
+  //printf("    INODE_ALLOW_WRITE: INODE %d DENY %d\n", inode, inode->deny_write_cnt);
 }
 
 /* Returns the length, in bytes, of INODE's data. */
@@ -343,3 +346,10 @@ inode_length (const struct inode *inode)
 {
   return inode->data.length;
 }
+
+int 
+inode_cnt (const struct inode *inode)
+{
+    return inode->deny_write_cnt;
+}
+
