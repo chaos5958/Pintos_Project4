@@ -215,7 +215,7 @@ exec (const char *file)
 
 //    if (!is_user_vaddr (file) || file == NULL
 //	    || !pagedir_get_page (thread_current ()->pagedir, file))
-    if (file == NULL || !pagedir_get_page (thread_current ()->pagedir, file) || !is_user_vaddr (file))
+    if (file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file) || !is_user_vaddr (file))
       	exit(-1);
     lock_acquire (&file_lock);
     tid = process_execute (file);    
@@ -235,7 +235,7 @@ create (const char *file, unsigned initial_size)
 {
 //    if (!is_user_vaddr (file) || file == NULL
 //	    || !pagedir_get_page (thread_current ()->pagedir, file))
-      if(file == NULL || !pagedir_get_page (thread_current ()->pagedir, file))  
+      if(file == NULL ||!is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))  
 	exit (-1);
     
 
@@ -255,7 +255,7 @@ open (const char *file)
     int ret = -1; 
 //    if (!is_user_vaddr (file) || file == NULL ||
 //	    !pagedir_get_page (thread_current ()->pagedir, file))
-    if(file == NULL || !pagedir_get_page (thread_current ()->pagedir, file))
+    if(file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
 	exit (-1);
 
     struct file* file_ = filesys_open (file);
@@ -409,9 +409,24 @@ done:
 static void
 seek (int fd, unsigned position) 
 {
-  struct file* file = find_file (fd);
+  struct file* file;
+  struct file_fd* file_fd;
+  struct list_elem* el; 
 
-  file_seek (file, position);
+  for (el = list_begin (&file_list); el != list_end (&file_list);
+	   el = list_next (el))
+    	{
+	    file_fd  = list_entry (el, struct file_fd, fd_elem);
+    	    if (file_fd->fd == fd && file_fd->file != NULL)
+	    {
+            	file = file_fd->file;
+		file_seek (file, position);
+		return ;
+	    }
+
+       }
+
+  //exit (-1);
 }
 
 static unsigned
