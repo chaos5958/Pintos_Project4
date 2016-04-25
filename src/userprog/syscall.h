@@ -5,5 +5,7 @@
 void syscall_init (void);
 
 void exit_ext (int status);
+void close_all (struct file*);
+void close_file (struct list_elem*);
 
 #endif /* userprog/syscall.h */

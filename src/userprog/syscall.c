@@ -43,6 +43,7 @@ static void seek (int fd, unsigned position);
 static unsigned tell (int fd);
 static void close (int fd);
 static struct file* find_file (int fd); 
+static void close_f (int fd);
 
 static int get_fd (void);
 
@@ -520,4 +521,70 @@ static struct file* find_file (int fd)
     }
 }
 
+/*
+void close_file (struct file* file)
+{
+    struct list_elem* el;
+    struct thread* curr = thread_current ();
+    struct file_fid* f_fd;    
 
+    for (el = list_begin (&file_list);  el != list_end (&file_list);
+	 el = list_next (el))
+    {
+	f_fd = list_entry (el, struct file_fd, fd_elem);
+	if (f_fd->file == file)
+	{
+	    close (f_fd);
+	    return ; 
+	}
+
+    }
+}
+*/
+
+static void
+close_f (int fd)
+{
+    struct file_fd* fd_ = NULL;
+    struct thread* curr = thread_current();
+    struct list_elem* el;
+    
+    
+    for (el = list_begin (&file_list) ;  el != list_end (&file_list) ;
+	     el = list_next (el))
+    {
+	fd_ = list_entry (el, struct file_fd, fd_elem);
+	if (fd_->fd == fd) 
+	    break; 
+	else
+	    fd_ = NULL;
+    }
+    
+    if (fd_ == NULL) 
+    	exit (-1);
+    if (fd_ != NULL)
+    {
+   	 list_remove (&fd_->fd_elem);
+	 file_close (fd_->file);
+      	 free (fd_);
+    }
+}
+
+
+void close_file (struct list_elem* el)
+{
+    if (el == NULL)
+	exit (-1);
+    
+    struct file_fd* f_fd = NULL;
+    f_fd = list_entry (el, struct file_fd, fd_thread);
+
+    if (f_fd == NULL)
+	exit (-1);
+    
+    //printf("before file close \n");
+    //file_close (f_fd->file);
+    close_f (f_fd->fd);
+    //printf("after file close \n");
+}
+   

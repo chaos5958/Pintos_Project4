@@ -203,8 +203,10 @@ process_wait (tid_t child_tid UNUSED)
 
     if (t->parent != thread_current ())
 	goto done;	
-
+ 
+    //printf ("before sema down\n");
     sema_down(&(t->wait));
+    //printf ("after sema down\n");
     if (curr->ret_valid == false)
 	goto done;
     
@@ -217,8 +219,9 @@ process_wait (tid_t child_tid UNUSED)
       	thread_unblock(t);
    
 done:
-    //printf("%s: exit(%d)\n", t->name, t->ret_status); 
- 
+   //if (t->status == THREAD_BLOCKED)
+   //   	thread_unblock(t);
+
     return ret; 
 }
 
@@ -227,31 +230,44 @@ void
 process_exit (void)
 {
   struct thread *curr = thread_current ();
-  struct file_fd *f_fd;  
   uint32_t *pd;
+  struct list_elem* el;
+  struct file* file;
   enum intr_level old_level;
   int i;
 
   sema_up (&curr->wait);
-  for( i = 0; i < list_size (&curr->wait.waiters); i++)
-        sema_up (&(curr->wait));
-  
+  for (i = 0; i < list_size (&curr->wait.waiters); i++)
+      sema_up (&curr->wait);
+  //    for (i = 0; i < 100; i++)
+  //    sema_up (&curr->wait);
+  //while (!list_empty (&curr->wait.waiters))
+  //	  sema_up (&(curr->wait));
+   
+
   file_close (curr->execute_file);//close the executable of this process
   curr->execute_file = NULL;
+  
+  //printf("before for \n");
+ 
+  //for (el = list_begin (&curr->open_file) ; el != list_end (&curr->open_file); el = list_next (el))
+    //  close__file (el);
+
+  while (!list_empty (&curr->open_file))
+  {
+      el = list_pop_front (&curr->open_file);
+      close_file (el);
+  }
+
+  //printf("after for \n");
+  //close_file (el);
+  
 
   old_level = intr_disable ();
   thread_block ();
   intr_set_level (old_level);
 
-  /*
-  while (!list_empty (&curr->open_file))
-  {
-      f_fd = list_entry (list_pop_front (&curr->open_file), struct file_fd, fd_thread);
-      file_close (f_fd->file);
-      free (f_fd);
-  }
-  */
-
+  //printf("after block \n");
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   
