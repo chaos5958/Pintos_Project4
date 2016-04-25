@@ -245,8 +245,10 @@ create (const char *file, unsigned initial_size)
 static bool
 remove (const char *file)
 {
-    printf("remove\n");
-    return 0;
+    if (file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
+        exit(-1);
+
+    return filesys_remove (file);
 }
 
 static int
