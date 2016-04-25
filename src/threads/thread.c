@@ -220,7 +220,7 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
 
-  // team1 
+  // team10
   list_push_back (&remain_list, &t->elem_cpu);
 
   if (thread_mlfqs)
@@ -318,16 +318,9 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
-  //struct thread *t = thread_current();
-  //enum intr_level old_level;
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
-
-  //sema_up(&(t->wait));
-  //old_level = intr_disable();
-  //thread_block();
-  //intr_set_level (old_level);
   process_exit ();
 #endif
 

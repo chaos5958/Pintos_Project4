@@ -182,8 +182,6 @@ halt (void)
     power_off();
 }
 
-//static void
-
 void
 exit_ext (int status)
 { 
@@ -201,9 +199,8 @@ static void
 exit (int status)
 { 
     struct thread* t = thread_current();
-    //if parent waits(exists)
+    //if parent waits(exists) ret_valid is true.
     if (t->parent != NULL){
-    //give status to parent
       t->parent->ret_valid = true;
     }
     t->ret_status = status;
@@ -214,8 +211,6 @@ exec (const char *file)
 {
     tid_t tid;
 
-//    if (!is_user_vaddr (file) || file == NULL
-//	    || !pagedir_get_page (thread_current ()->pagedir, file))
     if (file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file) || !is_user_vaddr (file))
       	exit(-1);
     lock_acquire (&file_lock);
@@ -234,8 +229,6 @@ wait (pid_t pid)
 static bool
 create (const char *file, unsigned initial_size)
 {
-//    if (!is_user_vaddr (file) || file == NULL
-//	    || !pagedir_get_page (thread_current ()->pagedir, file))
       if(file == NULL ||!is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))  
 	exit (-1);
     
@@ -256,8 +249,7 @@ static int
 open (const char *file)
 {
     int ret = -1; 
-//    if (!is_user_vaddr (file) || file == NULL ||
-//	    !pagedir_get_page (thread_current ()->pagedir, file))
+
     if(file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
 	exit (-1);
 
@@ -309,9 +301,6 @@ read (int fd, void *buffer, unsigned size)
     struct file* file = NULL;
     struct file_fd* file_fd; 
     struct list_elem* el;
-
-    //    if (!is_user_vaddr (buffer + size) 
-//	    || buffer == NULL || !pagedir_get_page (thread_current ()->pagedir, buffer))
      
     if (buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer))
     	exit (-1);
@@ -330,8 +319,8 @@ read (int fd, void *buffer, unsigned size)
     else if (fd == STDOUT_FILENO)
 	goto done;
 
-    else{
-	
+    else
+    {
        	for (el = list_begin (&file_list); el != list_end (&file_list);
 	   el = list_next (el))
     	{
@@ -342,13 +331,7 @@ read (int fd, void *buffer, unsigned size)
 		goto done;
 	    }
 
-       }
-       /*
-	if ((file = find_file (fd)) == NULL)
-	    goto done;
-	else
-	    ret = file_read (file, buffer, size);	
-	    */
+        }
     }
 
 
@@ -366,9 +349,6 @@ write (int fd, const void *buffer, unsigned size)
     struct file_fd* file_fd; 
     struct list_elem* el;
         
-    //exit (-1);
-    //    if (!is_user_vaddr (buffer + size) || buffer == NULL
-//	    || !pagedir_get_page (thread_current ()->pagedir, buffer))
     if(buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer + size)) {
       	  exit (-1);
     }
@@ -426,17 +406,22 @@ seek (int fd, unsigned position)
 		file_seek (file, position);
 		return ;
 	    }
-
        }
-
-  //exit (-1);
 }
 
 static unsigned
 tell (int fd) 
 {
-    printf("tell\n");
-    return 0; 
+    struct file_fd* f_fd;
+    struct list_elem* el;
+
+    for (el = list_begin (&file_list); el != list_end (&file_list);
+         el = list_next (el)){
+        f_fd = list_entry (el, struct file_fd, fd_elem);
+        if (f_fd->fd == fd && f_fd->file != NULL){
+	    return file_tell (f_fd->file);
+        }
+    } 
 }
 
 static void
@@ -458,39 +443,6 @@ close (int fd)
 
     if (fd_ == NULL) 
 	exit (-1);
-
-    /*
-    for (el = list_begin (&file_list); el != list_end (&file_list);
-	   el = list_next (el))
-    	{
-	    fd_ = list_entry (el, struct file_fd, fd_elem);
-    	    if (fd_->fd == fd && fd_->file != NULL)
-	    {		
-		list_remove (el);
-		file_close (fd_->file);
-		free (fd_);
-		break;
-	    }
-	}
-	
-    
-    for (el = list_begin (&curr->open_file); el != list_end (&curr->open_file);
-	   el = list_next (el))
-    	{
-	    fd_ = list_entry (el, struct file_fd, fd_thread);
-    	    if (fd_->fd == fd && fd_->file != NULL)
-	    {		
-		list_remove (el);
-		file_close (fd_->file);
-		free (fd_);
-		return ; 
-	    }
-
-	    else if (fd_->fd == fd && fd_->file == NULL)
-		exit (-1);
-	}
-    exit (-1);
-    */
 
     list_remove (&fd_->fd_elem);
     list_remove (&fd_->fd_thread);
@@ -522,27 +474,6 @@ static struct file* find_file (int fd)
 	    return NULL;
     }
 }
-
-/*
-void close_file (struct file* file)
-{
-    struct list_elem* el;
-    struct thread* curr = thread_current ();
-    struct file_fid* f_fd;    
-
-    for (el = list_begin (&file_list);  el != list_end (&file_list);
-	 el = list_next (el))
-    {
-	f_fd = list_entry (el, struct file_fd, fd_elem);
-	if (f_fd->file == file)
-	{
-	    close (f_fd);
-	    return ; 
-	}
-
-    }
-}
-*/
 
 void
 close_f (int fd)
@@ -585,39 +516,5 @@ void close_file (struct list_elem* el_)
     list_remove (&f_fd->fd_elem);
     file_close (f_fd->file);
     free (f_fd);
-
-    //if (f_fd == NULL)
-    //	exit (-1);
-    
-    //printf("before file close \n");
-    //file_close (f_fd->file);
-    //
-    /*
-    struct file_fd* fd_ = NULL;
-    struct thread* curr = thread_current();
-    struct list_elem* el;
- 
-    
-    for (el = list_begin (&file_list) ;  el != list_end (&file_list) ;
-	     el = list_next (el))
-    {
-	fd_ = list_entry (el, struct file_fd, fd_elem);
-	if (fd_->fd == fd) 
-	    break; 
-	else
-	    fd_ = NULL;
-    }
-    
-    if (fd_ == NULL) 
-    	exit (-1);
-    if (fd_ != NULL)
-    {
-   	 list_remove (&fd_->fd_elem);
-	 file_close (fd_->file);
-      	 free (fd_);
-    }
-    */
-    //close_f (f_fd->fd);
-    //printf("after file close \n");
 }
    

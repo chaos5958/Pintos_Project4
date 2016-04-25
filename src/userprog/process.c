@@ -71,7 +71,6 @@ process_execute (const char *file_name)
   /* team10: If the process is not loaded, return TID_ERROR, and wait until the thread is killed; we must wait here, since we give TID_ERROR to user, which makes user unable to wait for the process. */
   if (t->ret_status == -1){
     tid = TID_ERROR;
-    //thread_unblock(t);
     process_wait (t->tid);
   }
 
@@ -86,7 +85,6 @@ process_execute (const char *file_name)
 static void
 start_process (void *f_name)
 {
-  //printf("start process\n");
   char *file_name = f_name;
   struct intr_frame if_;
   bool success;
@@ -108,13 +106,9 @@ start_process (void *f_name)
 	  token = strtok_r (NULL, " ", &save_ptr))
   {
       argv_addr[argc] = file_name - token;
-      //printf("length: %s, argv_addr: %d\n", token, argv_addr[argc]);
-
       argc++; 
   }
   
-  //printf("before load\n");
-
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -127,12 +121,9 @@ start_process (void *f_name)
 
   if (success)
   {
-      //printf("  START_PROCESS: OPEN FILE\n");
       t->execute_file = filesys_open (file_name);
       if (t->execute_file != NULL)
 	  file_deny_write (t->execute_file);//deny writing to executable running this process
-      //file_deny_write (filessys_open (file_name));
-      //printf("  START_PROCESS: DENIED WRITE\n");
       start = if_.esp;
       if_.esp = if_.esp - length; 
       memcpy (if_.esp, file_name, length);
@@ -189,8 +180,6 @@ start_process (void *f_name)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-
-//Question : TID KERNEL CALL CHECK?     
 int
 process_wait (tid_t child_tid UNUSED) 
 {
@@ -204,9 +193,8 @@ process_wait (tid_t child_tid UNUSED)
     if (t->parent != thread_current ())
 	goto done;	
  
-    //printf ("before sema down\n");
     sema_down(&(t->wait));
-    //printf ("after sema down\n");
+   
     if (curr->ret_valid == false)
 	goto done;
     
@@ -219,9 +207,6 @@ process_wait (tid_t child_tid UNUSED)
       	thread_unblock(t);
    
 done:
-   //if (t->status == THREAD_BLOCKED)
-   //   	thread_unblock(t);
-
     return ret; 
 }
 
@@ -239,19 +224,9 @@ process_exit (void)
   sema_up (&curr->wait);
   for (i = 0; i < list_size (&curr->wait.waiters); i++)
       sema_up (&curr->wait);
-  //    for (i = 0; i < 100; i++)
-  //    sema_up (&curr->wait);
-  //while (!list_empty (&curr->wait.waiters))
-  //	  sema_up (&(curr->wait));
-   
 
   file_close (curr->execute_file);//close the executable of this process
   curr->execute_file = NULL;
-  
-  //printf("before for \n");
- 
-  //for (el = list_begin (&curr->open_file) ; el != list_end (&curr->open_file); el = list_next (el))
-    //  close__file (el);
 
   while (!list_empty (&curr->open_file))
   {
@@ -259,15 +234,10 @@ process_exit (void)
       close_file (el);
   }
 
-  //printf("after for \n");
-  //close_file (el);
-  
-
   old_level = intr_disable ();
   thread_block ();
   intr_set_level (old_level);
 
-  //printf("after block \n");
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   
@@ -302,7 +272,6 @@ process_activate (void)
      interrupts. */
   tss_update ();
 }
-
 /* We load ELF binaries.  The following definitions are taken
    from the ELF specification, [ELF1], more-or-less verbatim.  */
 
@@ -396,7 +365,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   file = filesys_open (file_name);
   if (file == NULL) 
     {
-      //printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
 
@@ -476,38 +444,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (!setup_stack (esp))
     goto done;
   
-  // team 10 
-  /*
-  else{
-      file_name = (char *) file_name;
-      char *token, *save_ptr;
 
-      int *argv_addr = malloc (sizeof (int) * ARG_NUM);
-      int length = strlen (file_name) + 1; 
-      int argc = 0;
-      int start;  
-      //uint8_t world-align = 0; 
-
-      for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
-	      token = strtok_r (NULL, " ", &save_ptr))
-      {
-	  argv_addr[argc] = file_name - token;
-	  argc++; 
-      }
-
-      start = *esp; 
-      memcpy (*esp, file_name, length);
-      *esp = *esp - length;
-
-      *esp = *esp - length%4; 
-      
-      for (argc = argc - 1 ; argc >= 0 ; argc--)
-      {
-	  *esp = start - argv_addr[argc]; 
-	  *esp = *esp - 4;
-      }	        
-  }
-  */
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -519,7 +456,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   file_close (file);
   return success;
 }
-
 /* load() helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
