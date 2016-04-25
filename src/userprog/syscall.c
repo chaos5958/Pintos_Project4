@@ -544,7 +544,7 @@ void close_file (struct file* file)
 }
 */
 
-static void
+void
 close_f (int fd)
 {
     struct file_fd* fd_ = NULL;
@@ -573,20 +573,51 @@ close_f (int fd)
 }
 
 
-void close_file (struct list_elem* el)
+void close_file (struct list_elem* el_)
 {
-    if (el == NULL)
-	exit (-1);
-    
+    ASSERT (el_ != NULL);
+     
     struct file_fd* f_fd = NULL;
-    f_fd = list_entry (el, struct file_fd, fd_thread);
+    f_fd = list_entry (el_, struct file_fd, fd_thread);
 
-    if (f_fd == NULL)
-	exit (-1);
+    int fd = f_fd->fd;
+
+    list_remove (&f_fd->fd_elem);
+    file_close (f_fd->file);
+    free (f_fd);
+
+    //if (f_fd == NULL)
+    //	exit (-1);
     
     //printf("before file close \n");
     //file_close (f_fd->file);
-    close_f (f_fd->fd);
+    //
+    /*
+    struct file_fd* fd_ = NULL;
+    struct thread* curr = thread_current();
+    struct list_elem* el;
+ 
+    
+    for (el = list_begin (&file_list) ;  el != list_end (&file_list) ;
+	     el = list_next (el))
+    {
+	fd_ = list_entry (el, struct file_fd, fd_elem);
+	if (fd_->fd == fd) 
+	    break; 
+	else
+	    fd_ = NULL;
+    }
+    
+    if (fd_ == NULL) 
+    	exit (-1);
+    if (fd_ != NULL)
+    {
+   	 list_remove (&fd_->fd_elem);
+	 file_close (fd_->file);
+      	 free (fd_);
+    }
+    */
+    //close_f (f_fd->fd);
     //printf("after file close \n");
 }
    
