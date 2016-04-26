@@ -475,35 +475,6 @@ static struct file* find_file (int fd)
     }
 }
 
-void
-close_f (int fd)
-{
-    struct file_fd* fd_ = NULL;
-    struct thread* curr = thread_current();
-    struct list_elem* el;
-    
-    
-    for (el = list_begin (&file_list) ;  el != list_end (&file_list) ;
-	     el = list_next (el))
-    {
-	fd_ = list_entry (el, struct file_fd, fd_elem);
-	if (fd_->fd == fd) 
-	    break; 
-	else
-	    fd_ = NULL;
-    }
-    
-    if (fd_ == NULL) 
-    	exit (-1);
-    if (fd_ != NULL)
-    {
-   	 list_remove (&fd_->fd_elem);
-	 file_close (fd_->file);
-      	 free (fd_);
-    }
-}
-
-
 void close_file (struct list_elem* el_)
 {
     ASSERT (el_ != NULL);
