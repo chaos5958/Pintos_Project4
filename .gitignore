@@ -1,4 +1,4 @@
-build/
+**/**/build
 .bash_history
 .bashrc
 .bashrc.swp
@@ -7,7 +7,6 @@ build/
 .bash_logout
 .gitconfig
 /.ssh
-*.txt
 /src/tags
 **/.vim/
 .vimrc

@@ -1,0 +1,45 @@
+Copying build/tests/userprog/args-multiple into /tmp/U6AIq7RQpn.dsk...
+Writing command line to /tmp/CRdIQGDhbp.dsk...
+warning: can't find squish-pty, so terminal input will fail
+bochs -q
+Kernel command line: -f -q put args-multiple run 'args-multiple some arguments for you!'
+Pintos booting with 4,096 kB RAM...
+374 pages available in kernel pool.
+373 pages available in user pool.
+Calibrating timer...  102,400 loops/s.
+hd0:0: detected 1,008 sector (504 kB) disk, model "Generic 1234", serial "BXHD00011"
+hd0:1: detected 4,032 sector (1 MB) disk, model "Generic 1234", serial "BXHD00012"
+hd1:0: detected 1,008 sector (504 kB) disk, model "Generic 1234", serial "BXHD00021"
+Formatting file system...done.
+Boot complete.
+Putting 'args-multiple' into the file system...
+Executing 'args-multiple some arguments for you!':
+========token==========
+length: args-multiple, argv_addr: 0
+length: some, argv_addr: -14
+length: arguments, argv_addr: -19
+length: for, argv_addr: -29
+length: you!, argv_addr: -33
+========token==========
+start: 0xc0000000, remainder 2
+file name; args-multiple
+esp: 0xbfffffda
+esp: 0xbfffffd9, value 0x67726100
+esp: 0xbfffffd8, value 0x72610000
+ptr of argv[4]: 0xbfffffdf
+is_.esp: 0xbfffffd0
+ptr of argv[3]: 0xbfffffe3
+is_.esp: 0xbfffffcc
+ptr of argv[2]: 0xbfffffed
+is_.esp: 0xbfffffc8
+ptr of argv[1]: 0xbffffff2
+is_.esp: 0xbfffffc4
+ptr of argv[0]: 0xc0000000
+is_.esp: 0xbfffffc0
+test: 5
+00000000  00 00 00 00 05 00 00 00-c0 ff ff bf 00 00 00 c0 |................|
+00000010  f2 ff ff bf ed ff ff bf-e3 ff ff bf df ff ff bf |................|
+00000020  00 00 00 00 00 00 61 72-67 73 2d 6d 75 6c 74 69 |......args-multi|
+00000030  70 6c 65 00 73 6f 6d 65-00 61 72 67 75 6d 65 6e |ple.some.argumen|
+00000040  74 73 00 66 6f 72 00 79-6f 75 21 00             |ts.for.you!.    |
+system call!
