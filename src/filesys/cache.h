@@ -13,7 +13,7 @@ extern struct lock cache_lock;
 
 struct cache{
     disk_sector_t pos;
-    char data [DISK_SECTOR_SIZE];
+    char data[DISK_SECTOR_SIZE];
 
     bool dirty;
     bool accessed;
