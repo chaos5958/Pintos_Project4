@@ -110,9 +110,13 @@ main (void)
   timer_calibrate ();
 
 #ifdef FILESYS
+  /* team10 impl */
+  init_cache ();
+
   /* Initialize file system. */
   disk_init ();
   filesys_init (format_filesys);
+
 #endif
 
   printf ("Boot complete.\n");

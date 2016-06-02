@@ -5,8 +5,6 @@
 #include <stdbool.h>
  
 
-// team10 added fuctions
-void priority_donation (struct lock*);
 
 /* A counting semaphore. */
 struct semaphore 
@@ -31,6 +29,10 @@ struct lock
     int lock_priority; /* team10: priority of lock defined by the most highest priority thread waiting  for this lock */
 
   };
+
+// team10 added fuctions
+void priority_donation (struct lock*);
+
 
 void lock_init (struct lock *);
 void lock_acquire (struct lock *);

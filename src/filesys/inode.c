@@ -7,8 +7,12 @@
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
 
+#include "filesys/cache.h"
+
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
+
+#define OLD 0
 
 /* On-disk inode.
    Must be exactly DISK_SECTOR_SIZE bytes long. */
@@ -221,6 +225,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       if (chunk_size <= 0)
         break;
 
+#if OLD
       if (sector_ofs == 0 && chunk_size == DISK_SECTOR_SIZE) 
         {
           /* Read full sector directly into caller's buffer. */
@@ -239,13 +244,15 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
           disk_read (filesys_disk, sector_idx, bounce);
           memcpy (buffer + bytes_read, bounce + sector_ofs, chunk_size);
         }
+#endif	
+      read_cache (sector_idx, buffer + bytes_read, chunk_size, sector_ofs);
       
       /* Advance. */
       size -= chunk_size;
       offset += chunk_size;
       bytes_read += chunk_size;
     }
-  free (bounce);
+   free (bounce);
 
   return bytes_read;
 }
@@ -282,6 +289,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       if (chunk_size <= 0)
         break;
 
+#if OLD
       if (sector_ofs == 0 && chunk_size == DISK_SECTOR_SIZE) 
         {
           /* Write full sector directly to disk. */
@@ -307,6 +315,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
           memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
           disk_write (filesys_disk, sector_idx, bounce); 
         }
+#endif
+      write_cache (sector_idx, buffer + bytes_written, chunk_size, sector_ofs);
 
       /* Advance. */
       size -= chunk_size;
