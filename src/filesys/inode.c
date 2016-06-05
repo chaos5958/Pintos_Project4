@@ -17,32 +17,34 @@
 #define INDIRECT_PTR_NUM 4
 #define DOUBLE_INDIRECT_PTR_NUM 1
 #define TOTAL_PTR_NUM (DIRECT_PTR_NUM + INDIRECT_PTR_NUM + DOUBLE_INDIRECT_PTR_NUM)
-#define UNUSED_NUM (125 - TOTAL_PTR_NUM)
-#define BLOCK_SIZE (DISK_
+#define UNUSED_NUM (123 - TOTAL_PTR_NUM)
+#define INDIRECT_BLOCK_SIZE (DISK_SECTOR_SIZE / 4)
 
 #define ERROR_ALLOC -1
 
 /* for debugging */
-#define OLD 1
+#define OLD 0
 
-struct inode_disk
-  {
-    disk_sector_t start;                /* First data sector. */
-    off_t length;                       /* File size in bytes. */
-    unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
-  };
+//struct inode_disk
+//  {
+//    disk_sector_t start;                /* First data sector. */
+//    off_t length;                       /* File size in bytes. */
+//    unsigned magic;                     /* Magic number. */
+//    uint32_t unused[125];               /* Not used. */
+//  };
 
 /* On-disk inode.
    Must be exactly DISK_SECTOR_SIZE bytes long. */
-//struct inode_disk
-//{
-//    off_t length;
-//    unsigned magic;
-//    int32_t index;
-//    disk_sector_t directory [TOTOAL_PTR_NUM];
-//    uint32_t unused[UNUSED_NUM];
-//}
+struct inode_disk
+{
+    off_t length;
+    off_t direct_idx;
+    off_t indirect_idx;
+    off_t double_indirect_idx;
+    unsigned magic;
+    disk_sector_t directory [TOTAL_PTR_NUM];
+    uint32_t unused[UNUSED_NUM];
+};
 
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
@@ -52,6 +54,12 @@ bytes_to_sectors (off_t size)
   return DIV_ROUND_UP (size, DISK_SECTOR_SIZE);
 }
 static bool inode_allocate (size_t, struct inode_disk *);
+static int indirect_allocate (size_t, disk_sector_t);
+static int double_indirect_allocate (size_t, disk_sector_t);
+static void inode_deallocate (struct inode_disk *);
+static void indirect_deallocate (disk_sector_t, size_t);
+static void double_indirect_deallocate (disk_sector_t, size_t, size_t);
+static off_t expand_file (struct inode *, off_t);
 
 /* In-memory inode. */
 struct inode 
@@ -76,9 +84,40 @@ byte_to_sector (const struct inode *inode, off_t pos)
 {
   ASSERT (inode != NULL);
   if (pos < inode->data.length)
-    return inode->data.start + pos / DISK_SECTOR_SIZE;
+  {
+      int idx = pos / DISK_SECTOR_SIZE;
+
+      if (idx < DIRECT_PTR_NUM)
+      {
+	  return inode->data.directory[idx];
+      }
+
+      idx -= DIRECT_PTR_NUM;
+
+      if (idx < INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE)
+      {
+	  disk_sector_t block [INDIRECT_BLOCK_SIZE];
+	  disk_read (filesys_disk, inode->data.directory[idx / INDIRECT_BLOCK_SIZE + DIRECT_PTR_NUM], block);
+	  
+	  return block[idx % INDIRECT_BLOCK_SIZE];
+      }
+
+      idx -= INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE;
+
+      if (idx < INDIRECT_BLOCK_SIZE * INDIRECT_BLOCK_SIZE)
+      {
+	  disk_sector_t block [INDIRECT_BLOCK_SIZE];
+	  
+	  disk_read (filesys_disk, inode->data.directory[DIRECT_PTR_NUM + INDIRECT_PTR_NUM], block);
+	  disk_read (filesys_disk, block[idx / INDIRECT_BLOCK_SIZE], block);
+
+	  return block[idx % INDIRECT_BLOCK_SIZE];
+      }
+
+      return -1;
+   }
   else
-    return -1;
+      return -1;
 }
 
 /* List of open inodes, so that opening a single inode twice
@@ -109,11 +148,6 @@ inode_create (disk_sector_t sector, off_t length)
      one sector in size, and you should fix that. */
   ASSERT (sizeof *disk_inode == DISK_SECTOR_SIZE);
 
-  /* team 10
-   * free_map_alloc -> indirect block
-   * disk_inode structre change 
-   */
-
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
   {
@@ -121,27 +155,13 @@ inode_create (disk_sector_t sector, off_t length)
       disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
 
-      if (free_map_allocate (sectors, &disk_inode->start))
+      if (inode_allocate (sectors, disk_inode))
       {
 	  disk_write (filesys_disk, sector, disk_inode);
-	  if (sectors > 0) 
-	  {
-	      static char zeros[DISK_SECTOR_SIZE];
-	      size_t i;
-
-	      for (i = 0; i < sectors; i++) 
-		  disk_write (filesys_disk, disk_inode->start + i, zeros); 
-	  }
-	  success = true; 
+	  success = true;
       }
 
-//      if (inode_allocate (sectors, &disk_inode))
-//      {
-//	  /* impl */
-//	  success = true;
-//      }
-//
-//      free (disk_inode);
+      free (disk_inode);
   }
   return success;
 }
@@ -219,8 +239,13 @@ inode_close (struct inode *inode)
 	if (inode->removed) 
 	{
 	    free_map_release (inode->sector, 1);
-	    free_map_release (inode->data.start,
-		    bytes_to_sectors (inode->data.length)); 
+	    inode_deallocate (&inode->data);
+//	    free_map_release (inode->data.start,
+//		    bytes_to_sectors (inode->data.length)); 
+	}
+	else
+	{
+	    /* a file is closed but it is remained in a directory */ 
 	}
 
 	free (inode); 
@@ -262,26 +287,6 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 	if (chunk_size <= 0)
 	    break;
 
-#if OLD
-	if (sector_ofs == 0 && chunk_size == DISK_SECTOR_SIZE) 
-	{
-	    /* Read full sector directly into caller's buffer. */
-	    disk_read (filesys_disk, sector_idx, buffer + bytes_read); 
-	}
-	else 
-	{
-	    /* Read sector into bounce buffer, then partially copy
-	       into caller's buffer. */
-	    if (bounce == NULL) 
-	    {
-		bounce = malloc (DISK_SECTOR_SIZE);
-		if (bounce == NULL)
-		    break;
-	    }
-	    disk_read (filesys_disk, sector_idx, bounce);
-	    memcpy (buffer + bytes_read, bounce + sector_ofs, chunk_size);
-	}
-#endif	
 	read_cache (sector_idx, buffer + bytes_read, chunk_size, sector_ofs);
 
 	/* Advance. */
@@ -310,6 +315,13 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
     if (inode->deny_write_cnt)
 	return 0;
 
+    if (inode->data.length < offset + size)
+    {
+	//printf ("expand file\n");
+	inode->data.length = expand_file (inode, offset + size);
+	disk_write (filesys_disk, inode->sector, &inode->data);
+    }
+
     while (size > 0) 
     {
 	/* Sector to write, starting byte offset within sector. */
@@ -326,33 +338,6 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 	if (chunk_size <= 0)
 	    break;
 
-#if OLD
-	if (sector_ofs == 0 && chunk_size == DISK_SECTOR_SIZE) 
-	{
-	    /* Write full sector directly to disk. */
-	    disk_write (filesys_disk, sector_idx, buffer + bytes_written); 
-	}
-	else 
-	{
-	    /* We need a bounce buffer. */
-	    if (bounce == NULL) 
-	    {
-		bounce = malloc (DISK_SECTOR_SIZE);
-		if (bounce == NULL)
-		    break;
-	    }
-
-	    /* If the sector contains data before or after the chunk
-	       we're writing, then we need to read in the sector
-	       first.  Otherwise we start with a sector of all zeros. */
-	    if (sector_ofs > 0 || chunk_size < sector_left) 
-		disk_read (filesys_disk, sector_idx, bounce);
-	    else
-		memset (bounce, 0, DISK_SECTOR_SIZE);
-	    memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
-	    disk_write (filesys_disk, sector_idx, bounce); 
-	}
-#endif
 	write_cache (sector_idx, buffer + bytes_written, chunk_size, sector_ofs);
 
 	/* Advance. */
@@ -400,30 +385,310 @@ inode_cnt (const struct inode *inode)
     return inode->deny_write_cnt;
 }
 
-//static bool inode_allocate (size_t sectors, struct inode_disk *disk_inode)
-//{
-//    int32_t idx;
-//    
-//    idx = direct_allocate (sectors, disk_inode);
-//    if (idx == ERROR_ALLOC)
-//	return false;
-//
-//    idx += indirect_allocate (sectors-idx, disk_inode);
-//    if (idx == ERROR_ALLOC)
-//	return false;
-//
-//    idx += double_indirect_allocate (sectors-idx, disk_inode);
-//    if (idx == ERROR_ALLOC)
-//	return false;
-//
-//    disk_inode->index = idx;
-//    return true;
-//}
-//
-//int32_t direct_allocate (size_t sectors, struct inode_disk *disk_inode)
+static bool inode_allocate (size_t sectors, struct inode_disk *disk_inode)
+{
+    disk_inode->direct_idx = 0;
+    disk_inode->indirect_idx = 0;
+    disk_inode->double_indirect_idx = 0;
+
+    int iter = 0;
+
+    while (sectors > 0)
+    {
+	if (iter < DIRECT_PTR_NUM)
+	{
+	    if (free_map_allocate (1, &disk_inode->directory[iter]))
+	    {
+		sectors --;
+		disk_inode->direct_idx++;
+	    }
+	    else
+		goto error;
+	}
+
+	else if (iter < DIRECT_PTR_NUM + INDIRECT_PTR_NUM)
+	{
+	    if (free_map_allocate (1, &disk_inode->directory[iter]))
+	    {	
+		int idx = indirect_allocate (sectors, disk_inode->directory[iter]);
+		if (idx == ERROR_ALLOC)
+		    goto error;
+		else
+		{
+		    sectors -= idx;
+		    disk_inode->indirect_idx += idx;
+		}
+	    }
+	}
+	else if (iter < DIRECT_PTR_NUM + INDIRECT_PTR_NUM + DOUBLE_INDIRECT_PTR_NUM)
+	{
+	    if (free_map_allocate (1, &disk_inode->directory[iter]))
+	    {
+		int idx = double_indirect_allocate (sectors, disk_inode->directory[iter]);
+
+		if (idx == ERROR_ALLOC)
+		    goto error;
+		else
+		{
+		    sectors -= idx;
+		    disk_inode->double_indirect_idx += idx;
+		}
+	    
+	    }
+	}
+	else{
+	    PANIC ("Memory full!");
+	}
+
+	iter++;
+    }
+
+    return true;
+
+error:
+    /* dealloc all blocks */
+    return false;
+}
+
+static int indirect_allocate (size_t sectors, disk_sector_t indirect_block)
+{
+    static char zeros[DISK_SECTOR_SIZE] = {0};
+    disk_sector_t block_ctx [INDIRECT_BLOCK_SIZE] = {0}; 
+
+    int iter = 0; 
+
+    while (sectors > 0 && iter < INDIRECT_BLOCK_SIZE)
+    {
+	if (free_map_allocate (1, &block_ctx[iter]))
+	{
+	    sectors--;
+	    disk_write (filesys_disk, block_ctx[iter], zeros);
+	}
+	else
+	    goto error;
+
+	iter++;
+    }
+    
+    disk_write (filesys_disk, indirect_block, block_ctx);
+
+    return iter;
+
+error:
+    /* dealloc indirect block */
+    while (iter >= 0)
+    {
+	free_map_release (block_ctx[iter], 1);
+	iter--;
+    }
+
+    return ERROR_ALLOC;
+}
+
+static int double_indirect_allocate (size_t sectors, disk_sector_t double_indirect_block)
+{
+    disk_sector_t block_ctx [INDIRECT_BLOCK_SIZE] = {0};
+
+    int iter = 0, ret = 0; 
+    size_t alloc_sectors;
+
+    while (sectors > 0 && iter < INDIRECT_BLOCK_SIZE)
+    {
+	alloc_sectors = sectors < INDIRECT_BLOCK_SIZE ? sectors : INDIRECT_BLOCK_SIZE;
+	
+	if (free_map_allocate (1, &block_ctx[iter]))
+	{
+	    int idx = indirect_allocate (alloc_sectors, block_ctx[iter]);
+
+	    if (idx == ERROR_ALLOC)
+		goto error;
+	    else
+	    {
+		sectors -= idx;
+		ret += idx;
+	    }
+	}
+	else 
+	    goto error;
+
+	iter++;
+    }
+    
+    disk_write (filesys_disk, double_indirect_block, block_ctx);
+
+    return ret;
+
+error:
+    /* dealloc indirect block */
+    return ERROR_ALLOC;
+}
+
+static void inode_deallocate (struct inode_disk *disk_inode)
+{
+    off_t idx, idx_max;
+
+    while (disk_inode->direct_idx > 0)
+    {
+	free_map_release (disk_inode->directory[disk_inode->direct_idx - 1], 1);
+	disk_inode->direct_idx--;
+    }
+
+    while (disk_inode->indirect_idx > 0)
+    {	
+	idx = (disk_inode->indirect_idx - 1) / INDIRECT_BLOCK_SIZE;
+	idx_max = (idx % INDIRECT_BLOCK_SIZE == 0) ? (idx > 0 ? INDIRECT_BLOCK_SIZE : 0) : idx % INDIRECT_BLOCK_SIZE;
+	indirect_deallocate (disk_inode->directory[idx + DIRECT_PTR_NUM], idx_max);
+	free_map_release (disk_inode->directory[idx + DIRECT_PTR_NUM], 1);
+	disk_inode->indirect_idx -= idx_max;
+    }
+
+    if (disk_inode->double_indirect_idx > 0)
+    {
+	double_indirect_deallocate (disk_inode->directory[DIRECT_PTR_NUM + INDIRECT_PTR_NUM], (disk_inode->double_indirect_idx - 1) / INDIRECT_BLOCK_SIZE, disk_inode->double_indirect_idx);
+    }
+}
+
+static void indirect_deallocate (disk_sector_t sector, size_t cnt)
+{
+    unsigned iter;
+    disk_sector_t block[INDIRECT_BLOCK_SIZE];
+
+    disk_read (filesys_disk, sector, block);
+
+    for (iter = 0; iter < cnt; iter++)
+	free_map_release (block[iter], 1);
+
+    free_map_release (sector, 1);
+}
+
+static void double_indirect_deallocate (disk_sector_t sector, size_t cnt, size_t sectors)
+{
+    unsigned iter;
+    size_t block_sectors;
+    disk_sector_t block[INDIRECT_BLOCK_SIZE];
+
+    disk_read (filesys_disk, sector, block);
+
+    for (iter = 0; iter < cnt; iter++)
+    {
+	block_sectors = sectors < INDIRECT_BLOCK_SIZE ? sectors : INDIRECT_BLOCK_SIZE;
+	indirect_deallocate (block[iter], block_sectors);
+	sectors -= block_sectors;
+    }
+
+    free_map_release (sector, 1);
+}
+
+static off_t expand_file (struct inode *inode, off_t length)
+{
+    struct inode_disk *disk_inode = &inode->data;
+    disk_sector_t sectors = bytes_to_sectors (length) - bytes_to_sectors (inode->data.length);
+    disk_sector_t block[INDIRECT_BLOCK_SIZE] = {0};
+    static char zeros[DISK_SECTOR_SIZE] = {0};
+
+    while (sectors > 0)
+    {
+	/* expand using direct blocks */
+	if (disk_inode->direct_idx < DIRECT_PTR_NUM)
+	{
+	    if (free_map_allocate (1, &disk_inode->directory[disk_inode->direct_idx]))
+	    {
+		disk_write (filesys_disk, disk_inode->directory[disk_inode->direct_idx], zeros);
+		sectors--;
+		disk_inode->direct_idx++;
+	    }
+	    else 
+		goto error;
+	}
+
+	/* expand using indirect blocks */
+	else if (disk_inode->indirect_idx < INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE)
+	{
+	    off_t block_idx = (disk_inode->indirect_idx - 1) / INDIRECT_BLOCK_SIZE;
+	    off_t inblock_idx = (disk_inode->indirect_idx - 1) % INDIRECT_BLOCK_SIZE;
+
+	    if (inblock_idx == INDIRECT_BLOCK_SIZE - 1)
+	    {
+		if (free_map_allocate (1, &disk_inode->directory[block_idx + DIRECT_PTR_NUM + 1]))
+		{
+		    if (free_map_allocate (1, &block[0]))
+		    {
+			sectors--;
+			disk_inode->indirect_idx++;
+			disk_write (filesys_disk, block[0], zeros);
+			disk_write (filesys_disk, disk_inode->directory[block_idx + DIRECT_PTR_NUM + 1], block);
+			memset (block, 0, sizeof block);
+		    }
+		    else
+			goto error;
+		}
+		else
+		    goto error;
+	    }
+	    else
+	    {
+		disk_read (filesys_disk, disk_inode->directory[block_idx + DIRECT_PTR_NUM], block);
+		
+		if (free_map_allocate (1, &block[inblock_idx + 1]))
+		{
+		    sectors--;
+		    disk_inode->indirect_idx++;
+		    disk_write (filesys_disk, block[inblock_idx + 1], zeros);
+		    disk_write (filesys_disk, disk_inode->directory[block_idx + DIRECT_PTR_NUM], block);
+		    memset (block, 0, sizeof block);
+		}
+		else
+		    goto error;
+	    }
+	}
+	/* expand using double indirect blocks */
+	else if (disk_inode->double_indirect_idx < INDIRECT_BLOCK_SIZE * INDIRECT_BLOCK_SIZE)
+	{
+	    
+	}
+
+	else
+	{
+    	    return length - sectors * DISK_SECTOR_SIZE;
+	}
+    }    
+
+    return length;
+
+error:
+    PANIC ("Expand fail");
+}
+
+//static void expand_indirect (struct inode *inode, disk_sector_t sectors)
 //{
 //    static char zeros[DISK_SECTOR_SIZE];
-//    int iter, error_iter;
+//    disk_sector_t block[INDIRECT_BLOCK_SIZE];
+//
+//
+//
+//static void expand_double_indirect (struct inode *inode, disk_sector_t sectors)
+//{
+//    while (sectors > 0)
+//    {
+//	off_t block_idx = (disk_inode->double_indirect_idx - 1) / INDIRECT_BLOCK_SIZE;
+//	off_t double_block_idx = block_idx / INDIRECT_BLOCK_SIZE;
+//	off_t in_block_idx = (disk_inode->double_indirect_idx - 1) % INDIRECT_BLOCK_SIZE;
+//
+//
+//
+//    }
+//
+//
+//}
+//
+
+
+
+//static 
+//int32_t direct_allocate (size_t sectors, struct inode_disk *disk_inode)
+//{
+//    static char zeros[DISK_SECTOR_SIZE] = {0};
+//    int iter; 
 //
 //    for (iter = 0 ; iter < DIRECT_PTR_NUM ; iter++)
 //    {
@@ -436,40 +701,69 @@ inode_cnt (const struct inode *inode)
 //	    }
 //	    else 
 //	    {
-//		for (error_iter = 0; error_iter < iter; error_iter++)
-//		    free_map_release (disk_inode->directory[iter], zeros);
-//		return ERROR_ALLOC;
+//		goto error;
 //	    }
 //	}
 //	else
 //	    return iter;
-//    }	 
-//    return iter;
-//}
+//   }	 
 //
+//    return iter;
+//
+//error:
+//    /*dealloc direct block */
+//    return ERROR_ALLOC;
+//}
+
 //int32_t indirect_allocate (size_t sectors, struct inode_disk *disk_inode)
 //{
-//    static char zeros[DISK_SECTOR_SIZE];
-//    disk_sector_t block [DISK_SECTOR_SIZE/4]; 
+//    static char zeros[DISK_SECTOR_SIZE] = {0};
+//    disk_sector_t block [DISK_SECTOR_SIZE/4] = {0}; 
 //
 //    int iter; 
+//    int iter_indirect;
+//    int block_num = 0;
+//    size_t alloc_sectors;
 //
 //    for (iter = 0; iter < INDIRECT_PTR_NUM; iter++)
 //    {
-//	if (sectors > 0)
+//	alloc_sectors = sectors >= (DISK_SECTOR_SIZE * DISK_SECTOR_SIZE / 4) ? 
+//	    (DISK_SECTOR_SIZE * DISK_SECTOR_SIZE / 4) : sectors;
+//	
+//	if (alloc_sectors > 0)
 //	{
-//	    if (free_map_allocate (1, &disk_inode->directory[iter + DIRECT_PTR_NUM]))
+//	    if (free_map_allocate (1, &disk_inode->directory[iter]))
 //	    {
-//		disk_write (filesys_disk, disk_inode_
+//		iter_indirect = 0;
 //
+//		while (alloc_sectors > 0)
+//		{
+//		    if (free_map_allocate (1, &block[iter_indirect]))
+//		    {
+//			block_num++;
+//			iter_indrect++;
+//			alloc_sectors -= DISK_SECTOR_SIZE;
+//			sectors -= DISK_SECTOR_SIZE;
+//			disk_write (filesys_disk, block[iter_indirect], zeros);
 //
+//			memset (block, 0, sizeof block);
+//		    }
+//		    else
+//			goto error;
+//		}
+//
+//		disk_write (filesys_disk, disk_inode->directory[iter], block);
+//	    }
+//	    else
+//		goto error;
+//	}
+//	else
+//	   return block_num;
+//    }
+//    return block_num;
+//
+//error:
+//    /* dealloc indirect block */
+//    return ERROR_ALLOC;
 //}
-//
-//int32_t double_indirect_allocate (size_t sectors, struct inode_disk *disk_inode);
-
-
-
-
-
-
 
