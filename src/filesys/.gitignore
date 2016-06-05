@@ -1,0 +1,10 @@
+#boch
+bochsout.txt
+bochsrc.txt
+
+#etc
+execute
+
+#build
+build/
+
