@@ -305,7 +305,7 @@ read (int fd, void *buffer, unsigned size)
     if (buffer == NULL || !is_user_vaddr (buffer + size) || !pagedir_get_page (thread_current ()->pagedir, buffer))
     	exit (-1);
 
-    lock_acquire (&file_lock);
+    //lock_acquire (&file_lock);
     if (fd == STDIN_FILENO)
     {
 	for (iteration = 0; iteration < size; iteration++)
@@ -336,7 +336,7 @@ read (int fd, void *buffer, unsigned size)
 
 
 done:
-    lock_release (&file_lock);
+    //lock_release (&file_lock);
     return ret;
 }
 
@@ -358,7 +358,7 @@ write (int fd, const void *buffer, unsigned size)
 	return size;
     }
 
-    lock_acquire (&file_lock);
+    //lock_acquire (&file_lock);
     if (fd == STDIN_FILENO)
 	goto done;
 
@@ -385,7 +385,7 @@ write (int fd, const void *buffer, unsigned size)
     }
 
 done:
-    lock_release (&file_lock);
+    //lock_release (&file_lock);
     return ret;
 }
 
