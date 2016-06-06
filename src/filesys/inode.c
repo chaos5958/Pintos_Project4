@@ -165,52 +165,52 @@ inode_create (disk_sector_t sector, off_t length)
 
       /* allocate sectors amount memory */
       if (inode_allocate (sectors, disk_inode))
-      {
-	  disk_write (filesys_disk, sector, disk_inode);
-	  success = true;
-      }
+			{
+				disk_write (filesys_disk, sector, disk_inode);
+				success = true;
+			}
 
-      free (disk_inode);
+			free (disk_inode);
   }
   return success;
 }
 
 /* Reads an inode from SECTOR
-   and returns a `struct inode' that contains it.
-   Returns a null pointer if memory allocation fails. */
-    struct inode *
+	 and returns a `struct inode' that contains it.
+	 Returns a null pointer if memory allocation fails. */
+struct inode *
 inode_open (disk_sector_t sector) 
 {
-    struct list_elem *e;
-    struct inode *inode;
+	struct list_elem *e;
+	struct inode *inode;
 
-    /* Check whether this inode is already open. */
-    for (e = list_begin (&open_inodes); e != list_end (&open_inodes);
-	    e = list_next (e)) 
-    {
-	inode = list_entry (e, struct inode, elem);
-	if (inode->sector == sector) 
+	/* Check whether this inode is already open. */
+	for (e = list_begin (&open_inodes); e != list_end (&open_inodes);
+			e = list_next (e)) 
 	{
-	    inode_reopen (inode);
-	    return inode; 
+		inode = list_entry (e, struct inode, elem);
+		if (inode->sector == sector) 
+		{
+			inode_reopen (inode);
+			return inode; 
+		}
 	}
-    }
 
-    /* Allocate memory. */
-    inode = malloc (sizeof *inode);
-    if (inode == NULL)
-	return NULL;
+	/* Allocate memory. */
+	inode = malloc (sizeof *inode);
+	if (inode == NULL)
+		return NULL;
 
-    /* Initialize. */
-    list_push_front (&open_inodes, &inode->elem);
-    inode->sector = sector;
-    inode->open_cnt = 1;
-    inode->deny_write_cnt = 0;
-    inode->removed = false;
-    disk_read (filesys_disk, inode->sector, &inode->data);
-    inode->readable_length = inode->data.length;
-    //printf("    INODE_OPEN: INODE %d DENY %d\n", inode, inode->deny_write_cnt);
-    return inode;
+	/* Initialize. */
+	list_push_front (&open_inodes, &inode->elem);
+	inode->sector = sector;
+	inode->open_cnt = 1;
+	inode->deny_write_cnt = 0;
+	inode->removed = false;
+	disk_read (filesys_disk, inode->sector, &inode->data);
+	inode->readable_length = inode->data.length;
+	//printf("    INODE_OPEN: INODE %d DENY %d\n", inode, inode->deny_write_cnt);
+	return inode;
 }
 
 /* Reopens and returns INODE. */
@@ -223,7 +223,7 @@ inode_reopen (struct inode *inode)
 }
 
 /* Returns INODE's inode number. */
-    disk_sector_t
+disk_sector_t
 inode_get_inumber (const struct inode *inode)
 {
     return inode->sector;
@@ -232,7 +232,7 @@ inode_get_inumber (const struct inode *inode)
 /* Closes INODE and writes it to disk.
    If this was the last reference to INODE, frees its memory.
    If INODE was also a removed inode, frees its blocks. */
-    void
+void
 inode_close (struct inode *inode) 
 {
     /* Ignore null pointer. */

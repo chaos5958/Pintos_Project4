@@ -7,11 +7,16 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 #include "devices/disk.h"
+#include "threads/thread.h"
+#include "threads/malloc.h"
+
+#define NAME_LEN_MAX 196
 
 /* The disk that contains the file system. */
 struct disk *filesys_disk;
 
 static void do_format (void);
+struct dir *get_dir (const char*);
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
@@ -46,6 +51,8 @@ filesys_done (void)
 bool
 filesys_create (const char *name, off_t initial_size) 
 {
+	printf("FILESYS_CREATE\n");
+	get_dir(name);
   disk_sector_t inode_sector = 0;
   struct dir *dir = dir_open_root ();
   bool success = (dir != NULL
@@ -67,14 +74,17 @@ filesys_create (const char *name, off_t initial_size)
 struct file *
 filesys_open (const char *name)
 {
-  struct dir *dir = dir_open_root ();
-  struct inode *inode = NULL;
+	printf("FILESYS_OPEN\n");
+	struct dir *dir = dir_open_root ();
+	struct inode *inode = NULL;
+	
+	get_dir(name);
 
-  if (dir != NULL)
-    dir_lookup (dir, name, &inode);
-  dir_close (dir);
+	if (dir != NULL)
+		dir_lookup(dir, name, &inode);	
+	dir_close (dir);
 
-  return file_open (inode);
+	return file_open (inode);
 }
 
 /* Deletes the file named NAME.
@@ -84,6 +94,8 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
+	printf("FILESYS_REMOVE\n");
+	get_dir(name);
   struct dir *dir = dir_open_root ();
   bool success = dir != NULL && dir_remove (dir, name);
   dir_close (dir); 
@@ -101,4 +113,38 @@ do_format (void)
     PANIC ("root directory creation failed");
   free_map_close ();
   printf ("done.\n");
+}
+
+struct dir *
+get_dir (const char *dirfile)
+{
+	struct dir *dir = NULL;
+	struct inode *inode = NULL;
+
+	if (!dirfile)
+		PANIC("file name not specified");
+
+	int dirfilelen = strlen(dirfile) + 1;
+	char copy[dirfilelen], *sub, *subnext, *save_ptr;
+	sub = (char*)calloc(1, (NAME_MAX + 1));
+
+	memcpy(copy, dirfile, dirfilelen);
+
+	if ((thread_current()->dir) && (copy[0] != '/'))
+		dir = thread_current()->dir;
+	else
+		dir = dir_open_root();
+	inode = dir_get_inode(dir);
+
+	subnext = strtok_r(copy, "/", &save_ptr);
+	memcpy(sub, subnext, NAME_MAX + 1);
+	while (subnext = strtok_r(NULL, "/", &save_ptr)){
+		printf("GET_DIR: subnext |%s|\n", subnext);
+
+		memcpy(sub, subnext, NAME_MAX + 1);
+	}
+
+	free(sub);
+	printf("GET_DIR: check input |%s|\n", dirfile);
+	return dir;
 }

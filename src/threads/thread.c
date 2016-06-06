@@ -670,6 +670,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->ret_valid = false;
   t->past_exit = false;
 #endif 
+	//team10: proj 4
+	t->dir = NULL;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

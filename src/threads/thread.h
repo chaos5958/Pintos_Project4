@@ -151,6 +151,7 @@ struct thread
 
 #endif
 
+		struct dir *dir;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
