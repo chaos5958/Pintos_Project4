@@ -52,7 +52,9 @@ filesys_create (const char *name, off_t initial_size)
   disk_sector_t inode_sector = 0;
   struct dir *dir = get_dir (name);
   char *fname = get_name (name);
-  bool success = (dir != NULL
+  bool success = false;
+  if (strcmp(fname, ".") && strcmp(fname, ".."))
+    success = (dir != NULL
       && free_map_allocate (1, &inode_sector)
       && inode_create (inode_sector, initial_size)
       && dir_add (dir, fname, inode_sector));
@@ -75,8 +77,14 @@ filesys_open (const char *name)
   struct inode *inode = NULL;
   char *fname = get_name (name);
 
-  if (dir != NULL)
-    dir_lookup(dir, fname, &inode);	
+  if (dir != NULL){
+    if (!strcmp(fname, "."))
+      inode = dir_get_inode(dir);
+    else if (!strcmp(fname, ".."))
+      printf("FILESYS_OPEN: open parent directory\n");
+    else
+      dir_lookup(dir, fname, &inode);
+  }
   dir_close (dir);
 
   return file_open (inode);
@@ -91,7 +99,13 @@ filesys_remove (const char *name)
 {
   struct dir *dir = get_dir(name);
   char *fname = get_name (name);
-  bool success = dir != NULL && dir_remove (dir, fname);
+  bool success;
+  if (!strcmp(fname, "."))
+    printf("FILESYS_REMOVE: go to parent and remove this directory\n");
+  else if (!strcmp(fname, ".."))
+    printf("FILESYS_REMOVE: go to grandparent and remove parent directory\n");
+  else
+    success = ((dir != NULL) && dir_remove (dir, fname));
   dir_close (dir); 
 
   return success;

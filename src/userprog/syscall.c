@@ -312,7 +312,6 @@ open (const char *file)
   ret = fd_->fd; 
 
 done:
-  printf("OPEN: fd %d\n", ret);
   return ret;
 
 }
