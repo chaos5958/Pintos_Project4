@@ -62,8 +62,8 @@ filesys_create (const char *name, off_t initial_size)
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
-
-  return success;
+  
+	return success;
 }
 
 /* Opens the file with the given NAME.
@@ -83,7 +83,7 @@ filesys_open (const char *name)
 	if (dir != NULL)
 		dir_lookup(dir, name, &inode);	
 	dir_close (dir);
-
+	
 	return file_open (inode);
 }
 
@@ -138,7 +138,7 @@ get_dir (const char *dirfile)
 
 	subnext = strtok_r(copy, "/", &save_ptr);
 	memcpy(sub, subnext, NAME_MAX + 1);
-	while (subnext = strtok_r(NULL, "/", &save_ptr)){
+	while ((subnext = strtok_r(NULL, "/", &save_ptr))){
 		printf("GET_DIR: subnext |%s|\n", subnext);
 
 		memcpy(sub, subnext, NAME_MAX + 1);
