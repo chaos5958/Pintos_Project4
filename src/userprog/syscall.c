@@ -62,7 +62,7 @@ static int inumber (int fd);
 
 static int get_fd (void);
 static struct dir *get_dir_by_fd (int fd);
-
+void remove_dirfd (struct dir* dir);
 
 void
 syscall_init (void) 
@@ -559,6 +559,7 @@ static bool chdir (const char *dir)
   struct dir *directory = get_dir(copy);
   if (!directory)
     return false;
+  dir_close(thread_current()->dir);
   thread_current()->dir = directory;
 
   free(copy);
@@ -578,6 +579,9 @@ static bool readdir (int fd, char *name)
   struct dir *dir = get_dir_by_fd(fd);
   bool success = dir_readdir(dir, name);
   printf("READDIR: rd %d name |%s|\n", fd, name);
+  if (strlen(name) <= 0){
+    remove_dirfd(dir);
+  }
   return success;
 }
 
@@ -603,7 +607,6 @@ static struct dir *get_dir_by_fd (int fd)
   struct list_elem *e;
   struct dir_fd *dir_fd;
   struct dir *dir;
-  printf("GET_DIR_BY_FD\n");
   /* dir of fd exists */
   for (e = list_begin (&dir_fd_list); e != list_end (&dir_fd_list);
       e = list_next(e)){
@@ -643,8 +646,27 @@ static struct dir *get_dir_by_fd (int fd)
   return NULL;
 }
 
-void remove_thread_dir (struct thread* t)
+void remove_dirfd (struct dir* dir)
 {
+  struct list_elem *e;
+  struct dir_fd *dir_fd;
+
+  for (e = list_begin (&dir_fd_list); e != list_end (&dir_fd_list);
+      e = list_next(e)){
+    dir_fd = list_entry(e, struct dir_fd, dir_fd_elem);
+    if (dir_fd->dir == dir){
+      list_remove(&(dir_fd->dir_fd_elem));
+      list_remove(&(dir_fd->dir_fd_thread));
+      dir_close(dir_fd->dir);
+      free(dir_fd);
+      printf("CLOSED AND REMOVED\n");
+      return;
+    }
+  }
+}
+
+void remove_thread_dir (struct thread* t)
+{/*
   struct list *dir_thread = &(t->dir_thread);
   struct list_elem *e;
   struct dir_fd *dir_fd;
@@ -654,5 +676,5 @@ void remove_thread_dir (struct thread* t)
     list_remove(&(dir_fd->dir_fd_elem));
     dir_close(dir_fd->dir);
     free(dir_fd);
-  }
+  }*/
 }
