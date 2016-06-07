@@ -12,6 +12,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/synch.h"
+#include "filesys/directory.h"
 
 typedef int pid_t;
 #define FD_START 0 
@@ -24,7 +25,16 @@ struct file_fd
   struct list_elem fd_thread; 
 };
 
+struct dir_fd
+{
+  struct file_fd *file_fd;
+  struct dir *dir;
+  struct list_elem dir_fd_elem;
+  struct list_elem dir_fd_thread;
+};
+
 static struct list file_list;
+static struct list dir_fd_list;
 static struct lock file_lock; 
 
 static void syscall_handler (struct intr_frame *);
@@ -51,6 +61,7 @@ static bool isdir (int fd);
 static int inumber (int fd);
 
 static int get_fd (void);
+static struct dir *get_dir_by_fd (int fd);
 
 
 void
@@ -58,6 +69,7 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   list_init (&file_list);
+  list_init (&dir_fd_list);
   lock_init (&file_lock);
 }
 
@@ -291,7 +303,6 @@ remove (const char *file)
 static int
 open (const char *file)
 {
-  printf("OPEN: |%s|\n", file);
   int ret = -1; 
 
   if(file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
@@ -535,6 +546,7 @@ void close_file (struct list_elem* el_)
 
 static bool chdir (const char *dir)
 {
+  printf("CHDIR: |%s|\n", dir);
   size_t dirlen = strlen(dir);
   char *copy = (char*)calloc(1, dirlen + 3);
   if (!copy)
@@ -555,6 +567,7 @@ static bool chdir (const char *dir)
 
 static bool mkdir (const char *dir)
 {
+  printf("MKDIR: |%s|\n", dir);
   if (!dir)
     return false;
   return filesys_create(dir, 0);
@@ -562,9 +575,9 @@ static bool mkdir (const char *dir)
 
 static bool readdir (int fd, char *name)
 {
-  bool success = false;
-  printf("READDIR: from %d\n", fd);
-
+  struct dir *dir = get_dir_by_fd(fd);
+  bool success = dir_readdir(dir, name);
+  printf("READDIR: rd %d name |%s|\n", fd, name);
   return success;
 }
 
@@ -585,3 +598,61 @@ static int inumber (int fd)
   return ino;
 }
 
+static struct dir *get_dir_by_fd (int fd)
+{
+  struct list_elem *e;
+  struct dir_fd *dir_fd;
+  struct dir *dir;
+  printf("GET_DIR_BY_FD\n");
+  /* dir of fd exists */
+  for (e = list_begin (&dir_fd_list); e != list_end (&dir_fd_list);
+      e = list_next(e)){
+    dir_fd = list_entry(e, struct dir_fd, dir_fd_elem);
+    if (dir_fd->file_fd->fd == fd)
+      return dir_fd->dir;
+  }
+
+  /* dir of fd does not exist: make dir and dir_fd */
+  struct file_fd *f_fd;
+  for (e = list_begin (&file_list); e != list_end (&file_list);
+      e = list_next(e)){
+    f_fd = list_entry(e, struct file_fd, fd_elem);
+    if (f_fd->fd == fd){
+      struct inode *inode = file_get_inode(f_fd->file);
+      if (!inode)
+	return NULL;
+      dir = dir_open(inode);
+      if (!dir)
+	return NULL;
+
+      struct dir_fd *dir_fd = (struct dir_fd *)malloc(sizeof(struct dir_fd));
+      if (!dir_fd){
+	dir_close(dir);
+	return NULL;
+      }
+      dir_fd->file_fd = f_fd;
+      dir_fd->dir = dir;
+      list_push_back(&dir_fd_list, &(dir_fd->dir_fd_elem));
+      list_push_back(&(thread_current()->dir_thread), &(dir_fd->dir_fd_thread));
+
+      return dir_fd->dir;
+    }
+  }
+
+  /* fd does not exist */
+  return NULL;
+}
+
+void remove_thread_dir (struct thread* t)
+{
+  struct list *dir_thread = &(t->dir_thread);
+  struct list_elem *e;
+  struct dir_fd *dir_fd;
+  while (!list_empty (dir_thread)){
+    e = list_pop_front (dir_thread);
+    dir_fd = list_entry(e, struct dir_fd, dir_fd_thread);
+    list_remove(&(dir_fd->dir_fd_elem));
+    dir_close(dir_fd->dir);
+    free(dir_fd);
+  }
+}
