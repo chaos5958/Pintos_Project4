@@ -151,7 +151,10 @@ struct thread
 
 #endif
 
-		struct dir *dir;
+#ifdef FILESYS
+    struct dir *dir;
+    struct list dir_thread;
+#endif
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
