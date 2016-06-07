@@ -239,24 +239,28 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 struct dir *
 get_dir (const char *dirfile)
 {
-  struct dir *dir = thread_current()->dir;
-  struct inode *inode = NULL;
-
   if (!dirfile)
     return NULL;
 
+  /* set directory structures */
+  struct dir *dir = thread_current()->dir;
+  struct inode *inode = NULL;
+
+  /* set strings */
   int dirfilelen = strlen(dirfile) + 1;
   char copy[dirfilelen], *sub, *subnext, *save_ptr;
-  sub = (char*)calloc(1, NAME_MAX + 1);
-
   memcpy(copy, dirfile, dirfilelen);
+  sub = (char*)calloc(1, NAME_MAX + 1);
+  if (!sub)
+    return NULL;
 
-  /*obtain topmost directory*/
+  /* obtain topmost directory */
   if ((dir) && (copy[0] != '/'))
     dir = dir_reopen(dir);
   else
     dir = dir_open_root();
 
+  /* go to directories */
   subnext = strtok_r(copy, "/", &save_ptr);
   memcpy(sub, subnext, NAME_MAX + 1);
   while ((subnext = strtok_r(NULL, "/", &save_ptr))){
