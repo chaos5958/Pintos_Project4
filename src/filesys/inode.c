@@ -632,8 +632,8 @@ static off_t expand_file (struct inode *inode, off_t length)
     if (disk_inode->direct_idx < DIRECT_PTR_NUM)
     {
       //printf ("direct block\n");
-      	printf ("direct block\n");
-	printf ("direct_idx %zu,  %zu\n", disk_inode->direct_idx, INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE);
+      	//printf ("direct block\n");
+	//printf ("direct_idx %zu,  %zu\n", disk_inode->direct_idx, INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE);
 
       if (free_map_allocate (1, &disk_inode->directory[disk_inode->direct_idx]))
       {
@@ -648,8 +648,8 @@ static off_t expand_file (struct inode *inode, off_t length)
     /* expand using indirect blocks */
     else if (disk_inode->indirect_idx < INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE)
     {
-	printf ("indirect block\n");
-	printf ("indirect_idx %zu,  %zu\n", disk_inode->indirect_idx, INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE);
+	//printf ("indirect block\n");
+	//printf ("indirect_idx %zu,  %zu\n", disk_inode->indirect_idx, INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE);
       off_t block_idx = (disk_inode->indirect_idx - 1) / INDIRECT_BLOCK_SIZE;
       off_t inblock_idx = (disk_inode->indirect_idx - 1) % INDIRECT_BLOCK_SIZE;
 
@@ -696,7 +696,7 @@ static off_t expand_file (struct inode *inode, off_t length)
     /* expand using double indirect blocks */
     else if (disk_inode->double_indirect_idx < INDIRECT_BLOCK_SIZE * INDIRECT_BLOCK_SIZE)
     {
-	printf ("double indirect block\n");
+	//printf ("double indirect block\n");
       off_t inblock_idx = (disk_inode->double_indirect_idx - 1) % INDIRECT_BLOCK_SIZE;
       off_t block_idx = (disk_inode->double_indirect_idx - 1) / INDIRECT_BLOCK_SIZE;
       disk_sector_t double_block[INDIRECT_BLOCK_SIZE] = {0};
@@ -760,7 +760,7 @@ static off_t expand_file (struct inode *inode, off_t length)
   return length;
 
 error:
-  printf ("ret: %zu\n", length - sectors * DISK_SECTOR_SIZE);
+  //printf ("ret: %zu\n", length - sectors * DISK_SECTOR_SIZE);
   return length - sectors * DISK_SECTOR_SIZE;
 }
 
