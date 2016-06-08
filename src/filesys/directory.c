@@ -227,6 +227,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
   {
     dir->pos += sizeof e;
+    printf ("%dir pos %zu\n", dir->pos);
     if (e.in_use)
     {
       strlcpy (name, e.name, NAME_MAX + 1);
@@ -234,6 +235,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
       return true;
     } 
   }
+  printf ("dir pos %zu\n", dir->pos);
   return false;
 }
 
@@ -255,21 +257,26 @@ get_dir (const char *dirfile)
   if (!sub)
     return NULL;
 
+  printf ("copy: %s\n", copy);
   /* obtain topmost directory */
+  
   if ((dir) && (copy[0] != '/'))
-    dir = dir_reopen(dir);
+      dir = dir_reopen(dir);
   else
     dir = dir_open_root();
-
+ 
   /* go to directories */
   subnext = strtok_r(copy, "/", &save_ptr);
+  printf ("subnext %s\n", subnext);
   memcpy(sub, subnext, NAME_MAX + 1);
   while ((subnext = strtok_r(NULL, "/", &save_ptr))){
     if (!strcmp(sub, "."));
     else if (!strcmp(sub, ".."))
       printf("  GET_DIR: go to parent directory\n");
     else{
+	printf ("sub %s\n", sub);
       if (!dir_lookup(dir, sub, &inode)){
+	 printf ("lookup fail\n");
 	dir_close(dir);
 	free(sub);
 	return NULL;
