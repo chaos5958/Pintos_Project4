@@ -259,9 +259,8 @@ get_dir (const char *dirfile)
 
   printf ("copy: %s\n", copy);
   /* obtain topmost directory */
-  
   if ((dir) && (copy[0] != '/'))
-      dir = dir_reopen(dir);
+      dir = dir_reopen (dir);
   else
     dir = dir_open_root();
  

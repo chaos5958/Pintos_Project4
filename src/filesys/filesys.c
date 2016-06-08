@@ -167,13 +167,16 @@ struct inode *filesys_open_inode (const char *name)
   //printf ("name: %s\n", fname);
   if (dir != NULL){
     if (!strcmp(fname, "."))
+    {
       inode = dir_get_inode(dir);
+    }
     else if (!strcmp(fname, ".."))
       printf("FILESYS_OPEN: open parent directory\n");
     else
+    {
       dir_lookup(dir, fname, &inode);
+      dir_close (dir);
+    }
   }
-  dir_close (dir);
-  //printf ("inode: %d\n", inode_get_inumber (inode)); 
   return inode;
 }
