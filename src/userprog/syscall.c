@@ -17,7 +17,7 @@
 #include "userprog/pagedir.h"
 #include "devices/input.h"
 #include "lib/string.h"
-
+#include "filesys/inode.h"
 typedef int pid_t;
 #define FD_START 0 
 
@@ -305,19 +305,19 @@ open (const char *file)
   if(file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
     exit (-1);
 
+  struct dir* dir_ = NULL;
   struct file* file_ = filesys_open (file);
-  struct dir* dir_ = filesys_open_dir (file);
   bool is_dir = false;
-  
+
+  if (inode_is_dir (file_get_inode (file_)))
+  {      
+      dir_ = dir_open (file_get_inode (file_));
+      is_dir = false;
+  }
+
   if (file_ == NULL) {
-    is_dir = true;
-    if (dir_ == NULL){
       goto done;
     }
-  }
-  else if (dir_ != NULL){
-    PANIC("one inode must be either file or directory");
-  }
 
   struct file_fd* fd_ = (struct file_fd*) malloc (sizeof (struct file_fd));
   if (fd_ == NULL)
@@ -325,6 +325,7 @@ open (const char *file)
 
   fd_->file = file_;
   fd_->dir = dir_;
+  fd_->is_dir = is_dir;
   fd_->fd = get_fd();
   list_push_back (&file_list, &fd_->fd_elem);
   list_push_back (&thread_current()->open_file, &fd_->fd_thread);
@@ -549,7 +550,7 @@ static bool chdir (const char *dir)
   }
   dir_close(thread_current()->dir);
   thread_current()->dir = directory;
-
+  //printf ("directory %p, %d\n", directory, inode_get_inumber (dir_get_inode (directory)));
   free(copy);
   return true;
 }
@@ -569,14 +570,17 @@ static bool readdir (int fd, char *name)
     //printf("READDIR: invalid fd\n");
     return false;
   }
-  struct dir *dir = dir_reopen(f_fd->dir);
+  
+  //struct dir *dir = dir_reopen (f_fd->dir);
+  struct dir *dir = f_fd->dir;
+  //printf ("dir: %p, inode: %d\n", dir, inode_get_inumber (dir_get_inode (dir)));
   if (!dir){
     //printf("READDIR: not directoy\n");
     return false;
   }
   bool success = dir_readdir(dir, name);
   //printf("READDIR: fd %d name |%s| success %d\n", fd, name, success);
-  dir_close(dir);
+  //dir_close(dir);
   return success;
 }
 
