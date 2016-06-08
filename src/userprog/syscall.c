@@ -331,7 +331,6 @@ open (const char *file)
   ret = fd_->fd; 
   //printf("OPEN: opened |%s|: fd %d\n", file, ret);
 done:
-  printf ("ret: %d\n", ret);
   return ret;
 }
 
