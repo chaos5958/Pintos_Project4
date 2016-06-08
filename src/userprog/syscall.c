@@ -315,8 +315,6 @@ open (const char *file)
       goto done;
     }
   }
-  if (file_ == NULL)
-      goto done;
   else if (dir_ != NULL){
     PANIC("one inode must be either file or directory");
   }
@@ -333,6 +331,7 @@ open (const char *file)
   ret = fd_->fd; 
   //printf("OPEN: opened |%s|: fd %d\n", file, ret);
 done:
+  printf ("ret: %d\n", ret);
   return ret;
 }
 
