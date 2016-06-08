@@ -282,7 +282,7 @@ create (const char *file, unsigned initial_size)
   if(file == NULL ||!is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))  
     exit (-1);
 
-  printf("CREATE: |%s|\n", file);
+  //printf("CREATE: |%s|\n", file);
 
   return filesys_create (file, initial_size);
 }
@@ -299,7 +299,7 @@ remove (const char *file)
 static int
 open (const char *file)
 {
-  printf("OPEN: |%s|\n", file);
+  //printf("OPEN: |%s|\n", file);
   int ret = -1; 
 
   if(file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
@@ -308,12 +308,15 @@ open (const char *file)
   struct file* file_ = filesys_open (file);
   struct dir* dir_ = filesys_open_dir (file);
   bool is_dir = false;
+  
   if (file_ == NULL) {
     is_dir = true;
     if (dir_ == NULL){
       goto done;
     }
   }
+  if (file_ == NULL)
+      goto done;
   else if (dir_ != NULL){
     PANIC("one inode must be either file or directory");
   }
@@ -328,7 +331,7 @@ open (const char *file)
   list_push_back (&file_list, &fd_->fd_elem);
   list_push_back (&thread_current()->open_file, &fd_->fd_thread);
   ret = fd_->fd; 
-  printf("OPEN: opened |%s|: fd %d\n", file, ret);
+  //printf("OPEN: opened |%s|: fd %d\n", file, ret);
 done:
   return ret;
 }
@@ -529,7 +532,7 @@ void close_file (struct list_elem* el_)
 
 static bool chdir (const char *dir)
 {
-  printf("CHDIR: |%s|\n", dir);
+  //printf("CHDIR: |%s|\n", dir);
   /* set strings: add {dummy directory}, so that get_dir regards given dir as directory to return and {added dummy directory} as file that exists in returned directory */
   size_t dirlen = strlen(dir);
   char *copy = (char*)calloc(1, dirlen + 3);
@@ -543,7 +546,7 @@ static bool chdir (const char *dir)
   /* get directory, close current process directory, set new directory */
   struct dir *directory = get_dir(copy);
   if (!directory){
-    printf("CHDIR: directory does not exist\n");
+    //printf("CHDIR: directory does not exist\n");
     return false;
   }
   dir_close(thread_current()->dir);
@@ -555,7 +558,7 @@ static bool chdir (const char *dir)
 
 static bool mkdir (const char *dir)
 {
-  printf("MKDIR: |%s|\n", dir);
+  //printf("MKDIR: |%s|\n", dir);
   if (!dir)
     return false;
   return filesys_create_dir(dir, 0);
@@ -565,16 +568,16 @@ static bool readdir (int fd, char *name)
 {
   struct file_fd *f_fd = find_fd(fd);
   if (!f_fd){
-    printf("READDIR: invalid fd\n");
+    //printf("READDIR: invalid fd\n");
     return false;
   }
   struct dir *dir = dir_reopen(f_fd->dir);
   if (!dir){
-    printf("READDIR: not directoy\n");
+    //printf("READDIR: not directoy\n");
     return false;
   }
   bool success = dir_readdir(dir, name);
-  printf("READDIR: fd %d name |%s| success %d\n", fd, name, success);
+  //printf("READDIR: fd %d name |%s| success %d\n", fd, name, success);
   dir_close(dir);
   return success;
 }
@@ -582,7 +585,7 @@ static bool readdir (int fd, char *name)
 static bool isdir (int fd)
 {
   bool success = false;
-  printf("ISDIR: is %d dir?\n", fd);
+  //printf("ISDIR: is %d dir?\n", fd);
 
   return success;
 }
@@ -590,7 +593,7 @@ static bool isdir (int fd)
 static int inumber (int fd)
 {
   int ino;
-  printf("INUMBER: sector no of inode associated with fd %d\n", fd);
+  //printf("INUMBER: sector no of inode associated with fd %d\n", fd);
 
   ino = -1;
   return ino;

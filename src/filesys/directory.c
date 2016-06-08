@@ -240,7 +240,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 struct dir *
 get_dir (const char *dirfile)
 {
-  if (!dirfile)
+  if (!dirfile || strlen (dirfile) == 0)
     return NULL;
 
   /* set directory structures */

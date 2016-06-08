@@ -55,10 +55,11 @@ filesys_create (const char *name, off_t initial_size)
   char *fname = get_name (name);
   bool success = false;
   if (strcmp(fname, ".") && strcmp(fname, ".."))
-    success = (dir != NULL
+      success = (dir != NULL
 	&& free_map_allocate (1, &inode_sector)
 	&& inode_create (inode_sector, initial_size, false)
 	&& dir_add (dir, fname, inode_sector));
+
   if (!success && inode_sector != 0)
     free_map_release (inode_sector, 1);
   dir_close (dir);
@@ -115,11 +116,14 @@ do_format (void)
 char *
 get_name (const char *dirname)
 {
+  if (strlen (dirname) == 0)
+      return dirname;
+
   char *copy, *next, *name, *save_ptr;
   size_t dirnamelen = strlen(dirname) + 1;
   copy = (char*)calloc(1, dirnamelen);
   strlcpy(copy, dirname, dirnamelen);
-
+ 
   next = strtok_r(copy, "/", &save_ptr);
   name = next;
   while((next = strtok_r(NULL, "/", &save_ptr)))
@@ -139,6 +143,7 @@ bool filesys_create_dir (const char *name, off_t initial_size)
 	&& free_map_allocate (1, &inode_sector)
 	&& inode_create (inode_sector, initial_size, true)
 	&& dir_add (dir, fname, inode_sector));
+
   if (!success && inode_sector != 0)
     free_map_release (inode_sector, 1);
   dir_close (dir);
@@ -167,6 +172,5 @@ struct inode *filesys_open_inode (const char *name)
       dir_lookup(dir, fname, &inode);
   }
   dir_close (dir);
-
   return inode;
 }
