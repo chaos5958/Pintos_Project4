@@ -20,7 +20,7 @@
 
 // team10 
 #include "threads/malloc.h"
-
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -225,9 +225,8 @@ process_exit (void)
   struct thread *curr = thread_current ();
   uint32_t *pd;
   struct list_elem* el;
-  struct file* file;
   enum intr_level old_level;
-  int i;
+  unsigned int i;
 
   file_close (curr->execute_file);//close the executable of this process
   curr->execute_file = NULL;
@@ -237,8 +236,6 @@ process_exit (void)
     dir_close (curr->dir);//close dir of current process
   }
   curr->dir = NULL;
-
-  remove_thread_dir(curr);
 #endif
 
   sema_up (&curr->wait);

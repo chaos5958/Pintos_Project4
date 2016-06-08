@@ -27,7 +27,7 @@ struct dir_entry
 bool
 dir_create (disk_sector_t sector, size_t entry_cnt) 
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+  return inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -36,7 +36,7 @@ struct dir *
 dir_open (struct inode *inode) 
 {
   struct dir *dir = calloc (1, sizeof *dir);
-  if (inode != NULL && dir != NULL)
+  if (inode != NULL && dir != NULL && inode_is_dir(inode))
   {
     dir->inode = inode;
     dir->pos = 0;
@@ -223,13 +223,14 @@ bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
-
+  printf("DIR_READDIR: pos %d\n", dir->pos); 
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
   {
     dir->pos += sizeof e;
     if (e.in_use)
     {
       strlcpy (name, e.name, NAME_MAX + 1);
+      printf("DIR_READDIR: name |%s|\n", name);
       return true;
     } 
   }

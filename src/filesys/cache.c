@@ -198,6 +198,8 @@ static cache_id evict_cache (void)
 	    return i;
 	}
     }
+
+    return -1;
 }
 
 static void cache_clear (cache_id idx)
