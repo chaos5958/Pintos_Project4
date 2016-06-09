@@ -87,11 +87,12 @@ void read_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
 	}
     }
     else
-    {
+    {	//lock_acquire (&cache_lock);
 	lock_acquire (&cache_arr[idx].cache_lock);
 	memcpy (buffer, cache_arr[idx].data + ofs, size);
 	cache_arr[idx].accessed = true;
 	lock_release (&cache_arr[idx].cache_lock);
+	//lock_release (&cache_lock);
     }
 }
 
@@ -134,10 +135,12 @@ void write_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
     }
     else
     {
+	//lock_acquire (&cache_lock);
 	lock_acquire (&cache_arr[idx].cache_lock);
 	memcpy (cache_arr[idx].data + ofs, buffer, size); 
 	cache_arr[idx].dirty = true;
 	lock_release (&cache_arr[idx].cache_lock);
+	//lock_release (&cache_lock);
     }
 }
 
