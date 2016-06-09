@@ -58,6 +58,9 @@ file_close (struct file *file)
 struct inode *
 file_get_inode (struct file *file) 
 {
+  if (file == NULL)
+      return NULL;
+
   return file->inode;
 }
 
