@@ -767,5 +767,8 @@ error:
 bool
 inode_is_dir (struct inode *inode)
 {
+  if (inode == NULL)
+      return false;
+
   return inode->data.is_dir;
 }

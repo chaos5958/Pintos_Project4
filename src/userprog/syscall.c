@@ -310,7 +310,7 @@ open (const char *file)
   bool is_dir = false;
 
   if (inode_is_dir (file_get_inode (file_)))
-  {      
+  {     
       dir_ = dir_open (file_get_inode (file_));
       is_dir = false;
   }
