@@ -22,4 +22,6 @@ char *get_name (const char*);
 bool filesys_create_dir (const char *name, off_t initial_size);
 struct dir *filesys_open_dir (const char *name);
 
+struct inode *filesys_open_inode (const char*);
+
 #endif /* filesys/filesys.h */

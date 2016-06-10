@@ -126,7 +126,10 @@ dir_lookup (const struct dir *dir, const char *name,
   ASSERT (name != NULL);
 
   if (lookup (dir, name, &e, NULL))
+  {
     *inode = inode_open (e.inode_sector);
+    set_parentdir (*inode, inode_reopen (dir_get_inode (dir)));
+  }
   else
     *inode = NULL;
 
@@ -185,6 +188,7 @@ done:
 bool
 dir_remove (struct dir *dir, const char *name) 
 {
+  //printf ("DIR_REMOVE START\n");
   struct dir_entry e;
   struct inode *inode = NULL;
   bool success = false;
@@ -202,6 +206,9 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
+  if (inode_get_inumber (thread_current ()->dir->inode) == inode_get_inumber (inode))
+      goto done;
+ 
   /* Erase directory entry. */
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
@@ -223,7 +230,7 @@ bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
-  printf("DIR_READDIR: pos %d\n", dir->pos); 
+  //printf("DIR_READDIR: pos %d\n", dir->pos); 
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
   {
     dir->pos += sizeof e;
@@ -231,7 +238,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
     if (e.in_use)
     {
       strlcpy (name, e.name, NAME_MAX + 1);
-      printf("DIR_READDIR: name |%s|\n", name);
+      //printf("DIR_READDIR: name |%s|\n", name);
       return true;
     } 
   }
@@ -266,22 +273,37 @@ get_dir (const char *dirfile)
  
   /* go to directories */
   subnext = strtok_r(copy, "/", &save_ptr);
-  //printf ("subnext %s\n", subnext);
+
+  /* result of parsing is NULL */
+  /*
+  if (!subnext)
+      return dir;
+  */
   memcpy(sub, subnext, NAME_MAX + 1);
-  while ((subnext = strtok_r(NULL, "/", &save_ptr))){
+  //printf ("subnext %s\n", subnext);
+  //printf ("copy %s\n", copy);
+  //while ((subnext = strtok_r(NULL, "/", &save_ptr))){
+  while (subnext = strtok_r (NULL, "/", &save_ptr))
+  //while (1)
+  {
+    //printf ("IN WHILE\n");
     if (!strcmp(sub, "."));
     else if (!strcmp(sub, ".."))
-      printf("  GET_DIR: go to parent directory\n");
+    {
+      //printf("  GET_DIR: go to parent directory\n");
+      dir = dir_open (inode_reopen (get_parentdir (dir->inode)));
+    }
+
     else{
 	//printf ("sub %s\n", sub);
-      if (!dir_lookup(dir, sub, &inode)){
-	 //printf ("lookup fail\n");
+	if (!dir_lookup(dir, sub, &inode)){
+	    //printf ("lookup fail\n");
+	    dir_close(dir);
+	    free(sub);
+	    return NULL;
+	}
 	dir_close(dir);
-	free(sub);
-	return NULL;
-      }
-      dir_close(dir);
-      dir = dir_open(inode);
+	dir = dir_open(inode);
     }
 
     memcpy(sub, subnext, NAME_MAX + 1);

@@ -15,7 +15,7 @@
 struct disk *filesys_disk;
 
 static void do_format (void);
-struct inode *filesys_open_inode (const char*);
+static void get_name_prev (char *name);
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
@@ -87,18 +87,98 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
+  //printf ("FILESYS_REMOVE: START\n");
   struct dir *dir = get_dir(name);
   char *fname = get_name (name);
   bool success = false;
   if (!strcmp(fname, "."))
-    printf("FILESYS_REMOVE: go to parent and remove this directory\n");
+  {
+  }
+
+    //printf("FILESYS_REMOVE: go to parent and remove this directory\n");
   else if (!strcmp(fname, ".."))
-    printf("FILESYS_REMOVE: go to grandparent and remove parent directory\n");
+  {
+    //printf("FILESYS_REMOVE: go to grandparent and remove parent directory\n");
+  }
   else
     success = ((dir != NULL) && dir_remove (dir, fname));
   dir_close (dir); 
 
+  //printf ("FILESYS_REMOVE: END\n");
   return success;
+  
+  /*
+  if (strlen (name) == 0)
+      return false;
+
+  char *name_ = (char *) malloc (strlen (name) + 1);
+  memcpy (name_, name, strlen (name) + 1);
+
+  char temp[NAME_MAX + 1];
+  struct dir *dir;
+  struct dir *dir_rm = NULL;
+  bool success = false;
+  struct inode *inode;
+  
+  dir = get_dir(name_);
+  char *fname = get_name (name_);
+ 
+  //printf ("fname: %s\n", fname); 
+  //case 1: a/b/NULL && / 
+  if (fname == NULL)
+  {
+      if ((inode = get_parentdir (dir_get_inode (dir))) == NULL)	  
+	  return success;
+
+      dir_rm = dir_open(inode);
+      get_name_prev (name_);
+   
+      if (!dir_readdir (dir, temp))
+      {
+	  success = ((dir != NULL) && dir_remove (dir, name_));
+      } 
+  }
+
+  //case 2: a/b/.
+  else if (!strcmp (fname, "."))
+  {
+      if ((inode = get_parentdir (dir_get_inode (dir))) == NULL)	  
+	  return success;
+
+      dir_rm = dir_open(inode);
+      get_name_prev (name_);
+  }
+  //case 3: a/b/..
+  else if (!strcmp (fname, ".."))
+  {
+      return success;
+  }
+
+  //case 4: a/b/c
+  else
+  {
+      dir_lookup(dir, fname, &inode);
+      if (inode_is_dir (inode))
+      {
+	  dir_rm = dir_open (inode);
+	  if (!dir_readdir (dir_rm, temp))
+	  {
+	      //printf ("ELSE FNAME:  %s\n", fname);
+	      success = ((dir != NULL) && dir_remove (dir, fname));
+	  } 
+      }
+      else
+      {
+	  //printf ("file\n");
+       	  success = ((dir != NULL) && dir_remove (dir, fname));
+      }
+  }
+
+  dir_close (dir_rm);
+  dir_close (dir); 
+
+  return success;
+  */
 }
 
 /* Formats the file system. */
@@ -166,12 +246,14 @@ struct inode *filesys_open_inode (const char *name)
   //printf ("dir name: %s\n", name);
   //printf ("name: %s\n", fname);
   if (dir != NULL){
-    if (!strcmp(fname, "."))
+    if (fname == NULL || !strcmp(fname, "."))
     {
       inode = dir_get_inode(dir);
     }
     else if (!strcmp(fname, ".."))
-      printf("FILESYS_OPEN: open parent directory\n");
+    {
+     // printf("FILESYS_OPEN: open parent directory\n");
+    }
     else
     {
       dir_lookup(dir, fname, &inode);
@@ -180,3 +262,18 @@ struct inode *filesys_open_inode (const char *name)
   }
   return inode;
 }
+
+static void get_name_prev (char *name)
+{
+    size_t len = strlen (name);
+
+    while (name[len] = '/')
+    {
+	name[len] = '\0';
+	len--;
+    }
+
+    name[len] = '\0';
+    name = get_name (name);
+}
+

@@ -74,6 +74,7 @@ struct inode
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     off_t readable_length;		/* length of a file which is readable excluding being expanded parts */
     struct inode_disk data;             /* Inode content. */
+    struct inode *parent_inode;
   };
 
 /* Returns the disk sector that contains byte offset POS within
@@ -206,6 +207,7 @@ inode_open (disk_sector_t sector)
 
   /* Initialize. */
   list_push_front (&open_inodes, &inode->elem);
+  inode->parent_inode = NULL;
   inode->sector = sector;
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
@@ -278,6 +280,8 @@ inode_remove (struct inode *inode)
 off_t
 inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset) 
 {
+  //printf("INDOE_READ_AT START\n");
+  //printf ("INODE_READ_AT SECTOR: %d\n", inode->sector);
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
@@ -285,11 +289,13 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   /* offest is bigger than file length, read nothing */
   if (inode->readable_length <= offset)
   {
+    //printf ("INODE_READ_AT | OFFSET\n");
     return 0;
   }
 
   if (inode->readable_length <= offset + size)
   {
+      //printf ("INODE_READ_AT | OFFSET + SIZE\n");
       size -= (offset + size - inode->readable_length);
   }
 
@@ -319,7 +325,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     bytes_read += chunk_size;
   }
   free (bounce);
-
+  //printf ("INODE_READ_AT END\n");
   return bytes_read;
 }
 
@@ -778,3 +784,14 @@ inode_is_dir (struct inode *inode)
 
   return inode->data.is_dir;
 }
+
+void set_parentdir (struct inode *current, struct inode *parent)
+{
+    current->parent_inode = parent;
+}
+
+struct inode *get_parentdir (struct inode *current)
+{
+    return current->parent_inode;
+}
+
