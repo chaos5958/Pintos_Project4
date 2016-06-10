@@ -239,6 +239,7 @@ struct dir *filesys_open_dir (const char *name)
 
 struct inode *filesys_open_inode (const char *name)
 {
+  //printf ("FILESYS_OPEN_INODE START\n");
   struct dir *dir = get_dir (name);
   struct inode *inode = NULL;
   char *fname = get_name (name);
@@ -260,6 +261,45 @@ struct inode *filesys_open_inode (const char *name)
       dir_close (dir);
     }
   }
+  //printf ("FILESYS_OPEN_INODE END\n");
+  //dir_close (dir);
+  free (fname);
+  return inode;
+}
+
+struct inode *filesys_open_inode_test (const char *name)
+{
+
+  //printf ("FILESYS_OPEN_INODE START\n");
+  struct dir *dir = get_dir (name);
+  
+  dir_close (dir);
+  //return NULL;
+  struct inode *inode = NULL;
+  char *fname = get_name (name);
+  free (fname);
+  //dir_close (dir);
+  return NULL;
+  
+  printf ("dir name: %s\n", name);
+  printf ("name: %s\n", fname);
+  if (dir != NULL){
+    if (fname == NULL || !strcmp(fname, "."))
+    {
+      inode = dir_get_inode(dir);
+    }
+    else if (!strcmp(fname, ".."))
+    {
+     // printf("FILESYS_OPEN: open parent directory\n");
+    }
+    else
+    {
+      dir_lookup(dir, fname, &inode);
+      dir_close (dir);
+    }
+  }
+  dir_close (dir);
+  //printf ("FILESYS_OPEN_INODE END\n");
   return inode;
 }
 

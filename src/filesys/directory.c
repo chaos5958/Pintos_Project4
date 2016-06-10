@@ -275,10 +275,10 @@ get_dir (const char *dirfile)
   subnext = strtok_r(copy, "/", &save_ptr);
 
   /* result of parsing is NULL */
-  /*
+  
   if (!subnext)
       return dir;
-  */
+  
   memcpy(sub, subnext, NAME_MAX + 1);
   //printf ("subnext %s\n", subnext);
   //printf ("copy %s\n", copy);

@@ -295,20 +295,25 @@ remove (const char *file)
   if (file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
     exit(-1);
 
-  //struct inode *curr_inode = filesys_open_inode (file);
-  //struct list_elem *el;
+ 
+  //printf ("REMOVE | START\n"); 
+  struct inode *curr_inode = filesys_open_inode_test (file);
+  struct list_elem *el;
 
-  /*
-  if (inode_is_dir (curr_inode))
+  //printf ("REMOVE | END\n");
+  
+  if (curr_inode != NULL && inode_is_dir (curr_inode))
   {
       for (el = list_begin (&file_list); el != list_end (&file_list); el = list_next (el))
       {
 	  struct file_fd *file_fd = list_entry (el, struct file_fd, fd_elem);
 	  if (inode_get_inumber (file_get_inode (file_fd->file)) == inode_get_inumber (curr_inode))
+	  {
+	      printf ("EXIST\n");
 	      return false;
+	  }
       }
   }
-  */
 
   return filesys_remove (file);
 }
