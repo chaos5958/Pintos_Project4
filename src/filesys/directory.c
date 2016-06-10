@@ -206,9 +206,12 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
+  
   if (inode_get_inumber (thread_current ()->dir->inode) == inode_get_inumber (inode))
-      goto done;
- 
+  {
+      thread_current ()->dir_removed = true;
+  }
+
   /* Erase directory entry. */
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
@@ -267,9 +270,17 @@ get_dir (const char *dirfile)
   //printf ("copy: %s\n", copy);
   /* obtain topmost directory */
   if ((dir) && (copy[0] != '/'))
+  {
+      if (thread_current ()->dir_removed)
+	  return NULL;
+
       dir = dir_reopen (dir);
+  }
   else
+  {
     dir = dir_open_root();
+    //return NULL;
+  }
  
   /* go to directories */
   subnext = strtok_r(copy, "/", &save_ptr);
@@ -283,7 +294,7 @@ get_dir (const char *dirfile)
   //printf ("subnext %s\n", subnext);
   //printf ("copy %s\n", copy);
   //while ((subnext = strtok_r(NULL, "/", &save_ptr))){
-  while (subnext = strtok_r (NULL, "/", &save_ptr))
+  while ((subnext = strtok_r (NULL, "/", &save_ptr)) != NULL)
   //while (1)
   {
     //printf ("IN WHILE\n");

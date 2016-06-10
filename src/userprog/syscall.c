@@ -297,7 +297,8 @@ remove (const char *file)
 
  
   //printf ("REMOVE | START\n"); 
-  struct inode *curr_inode = filesys_open_inode_test (file);
+  /*
+  struct inode *curr_inode = filesys_open_inode (file);
   struct list_elem *el;
 
   //printf ("REMOVE | END\n");
@@ -314,6 +315,9 @@ remove (const char *file)
 	  }
       }
   }
+  
+  inode_close (curr_inode);
+  */
 
   return filesys_remove (file);
 }
