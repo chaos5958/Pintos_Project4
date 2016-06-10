@@ -18,6 +18,8 @@
 #include "devices/input.h"
 #include "lib/string.h"
 #include "filesys/inode.h"
+#include "filesys/filesys.h"
+
 typedef int pid_t;
 #define FD_START 0 
 
@@ -293,6 +295,21 @@ remove (const char *file)
   if (file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
     exit(-1);
 
+  //struct inode *curr_inode = filesys_open_inode (file);
+  //struct list_elem *el;
+
+  /*
+  if (inode_is_dir (curr_inode))
+  {
+      for (el = list_begin (&file_list); el != list_end (&file_list); el = list_next (el))
+      {
+	  struct file_fd *file_fd = list_entry (el, struct file_fd, fd_elem);
+	  if (inode_get_inumber (file_get_inode (file_fd->file)) == inode_get_inumber (curr_inode))
+	      return false;
+      }
+  }
+  */
+
   return filesys_remove (file);
 }
 
@@ -312,7 +329,7 @@ open (const char *file)
   if (inode_is_dir (file_get_inode (file_)))
   {     
       dir_ = dir_open (file_get_inode (file_));
-      is_dir = false;
+      is_dir = true;
   }
 
   if (file_ == NULL) {
@@ -433,8 +450,13 @@ write (int fd, const void *buffer, unsigned size)
       file_fd  = list_entry (el, struct file_fd, fd_elem);
       if ((file_fd->fd == fd) && (file_fd->file != NULL))
       {
-	ret = file_write (file_fd->file, buffer, size);
-	goto done;
+	  if (file_fd->is_dir)
+	      return -1;
+	  else
+	  {
+	      ret = file_write (file_fd->file, buffer, size);
+	      goto done;
+	  }
       }
 
     }
@@ -589,16 +611,23 @@ static bool isdir (int fd)
   bool success = false;
   //printf("ISDIR: is %d dir?\n", fd);
 
-  return success;
+  struct file_fd *f_fd = find_fd (fd);
+
+  if (f_fd == NULL)
+      return false;
+
+  return f_fd->is_dir;
 }
 
 static int inumber (int fd)
 {
-  int ino;
   //printf("INUMBER: sector no of inode associated with fd %d\n", fd);
+  struct file_fd  *f_fd = find_fd (fd);
 
-  ino = -1;
-  return ino;
+  if (f_fd == NULL)
+      return -1;
+
+  return inode_get_inumber (file_get_inode (f_fd->file));
 }
 
 static struct file_fd *find_fd (int fd)

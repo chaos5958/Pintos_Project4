@@ -55,6 +55,7 @@ cache_id find_cache (disk_sector_t pos)
 
 void read_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
 {
+    //printf ("READ_CACHE START\n");
     cache_id idx = find_cache (pos);
     //cache x
     if (idx == -1)
@@ -94,6 +95,7 @@ void read_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
 	lock_release (&cache_arr[idx].cache_lock);
 	//lock_release (&cache_lock);
     }
+    //printf ("READ_CACHE END\n");
 }
 
 void write_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)

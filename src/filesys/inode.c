@@ -280,6 +280,8 @@ inode_remove (struct inode *inode)
 off_t
 inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset) 
 {
+  //printf("INDOE_READ_AT START\n");
+  //printf ("INODE_READ_AT SECTOR: %d\n", inode->sector);
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
@@ -287,11 +289,13 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   /* offest is bigger than file length, read nothing */
   if (inode->readable_length <= offset)
   {
+    //printf ("INODE_READ_AT | OFFSET\n");
     return 0;
   }
 
   if (inode->readable_length <= offset + size)
   {
+      //printf ("INODE_READ_AT | OFFSET + SIZE\n");
       size -= (offset + size - inode->readable_length);
   }
 
@@ -321,7 +325,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     bytes_read += chunk_size;
   }
   free (bounce);
-
+  //printf ("INODE_READ_AT END\n");
   return bytes_read;
 }
 

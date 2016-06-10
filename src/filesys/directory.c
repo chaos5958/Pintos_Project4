@@ -188,6 +188,7 @@ done:
 bool
 dir_remove (struct dir *dir, const char *name) 
 {
+  //printf ("DIR_REMOVE START\n");
   struct dir_entry e;
   struct inode *inode = NULL;
   bool success = false;
@@ -205,6 +206,9 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
+  if (inode_get_inumber (thread_current ()->dir->inode) == inode_get_inumber (inode))
+      goto done;
+ 
   /* Erase directory entry. */
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
@@ -269,9 +273,20 @@ get_dir (const char *dirfile)
  
   /* go to directories */
   subnext = strtok_r(copy, "/", &save_ptr);
-  //printf ("subnext %s\n", subnext);
+
+  /* result of parsing is NULL */
+  /*
+  if (!subnext)
+      return dir;
+  */
   memcpy(sub, subnext, NAME_MAX + 1);
-  while ((subnext = strtok_r(NULL, "/", &save_ptr))){
+  //printf ("subnext %s\n", subnext);
+  //printf ("copy %s\n", copy);
+  //while ((subnext = strtok_r(NULL, "/", &save_ptr))){
+  while (subnext = strtok_r (NULL, "/", &save_ptr))
+  //while (1)
+  {
+    //printf ("IN WHILE\n");
     if (!strcmp(sub, "."));
     else if (!strcmp(sub, ".."))
     {
@@ -281,14 +296,14 @@ get_dir (const char *dirfile)
 
     else{
 	//printf ("sub %s\n", sub);
-      if (!dir_lookup(dir, sub, &inode)){
-	 //printf ("lookup fail\n");
+	if (!dir_lookup(dir, sub, &inode)){
+	    //printf ("lookup fail\n");
+	    dir_close(dir);
+	    free(sub);
+	    return NULL;
+	}
 	dir_close(dir);
-	free(sub);
-	return NULL;
-      }
-      dir_close(dir);
-      dir = dir_open(inode);
+	dir = dir_open(inode);
     }
 
     memcpy(sub, subnext, NAME_MAX + 1);
