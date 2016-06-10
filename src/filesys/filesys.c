@@ -91,9 +91,14 @@ filesys_remove (const char *name)
   char *fname = get_name (name);
   bool success = false;
   if (!strcmp(fname, "."))
-    printf("FILESYS_REMOVE: go to parent and remove this directory\n");
+  {
+  }
+
+    //printf("FILESYS_REMOVE: go to parent and remove this directory\n");
   else if (!strcmp(fname, ".."))
-    printf("FILESYS_REMOVE: go to grandparent and remove parent directory\n");
+  {
+    //printf("FILESYS_REMOVE: go to grandparent and remove parent directory\n");
+  }
   else
     success = ((dir != NULL) && dir_remove (dir, fname));
   dir_close (dir); 
@@ -171,7 +176,9 @@ struct inode *filesys_open_inode (const char *name)
       inode = dir_get_inode(dir);
     }
     else if (!strcmp(fname, ".."))
-      printf("FILESYS_OPEN: open parent directory\n");
+    {
+     // printf("FILESYS_OPEN: open parent directory\n");
+    }
     else
     {
       dir_lookup(dir, fname, &inode);

@@ -226,7 +226,7 @@ bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
-  printf("DIR_READDIR: pos %d\n", dir->pos); 
+  //printf("DIR_READDIR: pos %d\n", dir->pos); 
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
   {
     dir->pos += sizeof e;
@@ -234,7 +234,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
     if (e.in_use)
     {
       strlcpy (name, e.name, NAME_MAX + 1);
-      printf("DIR_READDIR: name |%s|\n", name);
+      //printf("DIR_READDIR: name |%s|\n", name);
       return true;
     } 
   }
@@ -275,7 +275,7 @@ get_dir (const char *dirfile)
     if (!strcmp(sub, "."));
     else if (!strcmp(sub, ".."))
     {
-      printf("  GET_DIR: go to parent directory\n");
+      //printf("  GET_DIR: go to parent directory\n");
       dir = dir_open (inode_reopen (get_parentdir (dir->inode)));
     }
 
