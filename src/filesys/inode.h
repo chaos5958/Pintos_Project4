@@ -23,4 +23,6 @@ int inode_cnt (const struct inode *);
 bool inode_is_dir (struct inode *);
 void set_parentdir (struct inode *current, struct inode *parent);
 struct inode *get_parentdir (struct inode *current);
+struct inode *filesys_open_inode_test (const char *name);
+
 #endif /* filesys/inode.h */
