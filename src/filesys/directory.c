@@ -126,7 +126,10 @@ dir_lookup (const struct dir *dir, const char *name,
   ASSERT (name != NULL);
 
   if (lookup (dir, name, &e, NULL))
+  {
     *inode = inode_open (e.inode_sector);
+    set_parentdir (*inode, inode_reopen (dir_get_inode (dir)));
+  }
   else
     *inode = NULL;
 
@@ -271,7 +274,11 @@ get_dir (const char *dirfile)
   while ((subnext = strtok_r(NULL, "/", &save_ptr))){
     if (!strcmp(sub, "."));
     else if (!strcmp(sub, ".."))
+    {
       printf("  GET_DIR: go to parent directory\n");
+      dir = dir_open (inode_reopen (get_parentdir (dir->inode)));
+    }
+
     else{
 	//printf ("sub %s\n", sub);
       if (!dir_lookup(dir, sub, &inode)){
