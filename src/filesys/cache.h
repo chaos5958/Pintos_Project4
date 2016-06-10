@@ -13,7 +13,7 @@ void init_cache (void);
 cache_id find_cache (disk_sector_t);
 void read_cache (disk_sector_t, void*, off_t, off_t);
 void write_cache (disk_sector_t, void*, off_t, off_t); 
-
+void cache_to_disk (void);
 
 
 

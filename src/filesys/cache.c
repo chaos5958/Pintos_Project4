@@ -215,3 +215,19 @@ static void cache_clear (cache_id idx)
     cache_arr[idx].dirty = false;
 }
 
+void cache_to_disk (void)
+{
+    int i;
+
+    lock_acquire (&cache_lock);
+
+    for (i = 0; i < cache_num ; i++)
+    {
+	if (cache_arr[i].dirty)
+	    disk_write (filesys_disk, cache_arr[i].pos, cache_arr[i].data);
+    }
+
+    lock_release (&cache_lock);
+}
+
+
