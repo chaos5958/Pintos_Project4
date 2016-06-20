@@ -20,22 +20,21 @@
 #include "filesys/inode.h"
 #include "filesys/filesys.h"
 
-typedef int pid_t;
+typedef int pid_t; //process ID
 #define FD_START 0 
 
-struct file_fd 
+struct file_fd //file descriptor structure
 {
   struct file* file;
   struct dir* dir;
-  bool is_dir;
-  int fd;
-  struct list_elem fd_elem;
-  struct list_elem fd_thread; 
+  bool is_dir; //whether it is file or directory that this structure is holding
+  int fd; //file descriptor
+  struct list_elem fd_elem; //list of all fd struct
+  struct list_elem fd_thread; //list of fd struct that thread owns
 };
 
-static struct list file_list;
-static struct list dir_fd_list;
-static struct lock file_lock; 
+static struct list file_list; //list of open files
+static struct lock file_lock;
 
 static void syscall_handler (struct intr_frame *);
 
@@ -66,7 +65,6 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   list_init (&file_list);
-  list_init (&dir_fd_list);
   lock_init (&file_lock);
 }
 
@@ -258,6 +256,7 @@ exit (int status)
   t->ret_status = status;
   thread_exit();
 }
+
 static pid_t
 exec (const char *file)
 {
@@ -284,8 +283,6 @@ create (const char *file, unsigned initial_size)
   if(file == NULL ||!is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))  
     exit (-1);
 
-  //printf("CREATE: |%s|\n", file);
-
   return filesys_create (file, initial_size);
 }
 
@@ -295,33 +292,14 @@ remove (const char *file)
   if (file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
     exit(-1);
 
- 
-  //printf ("REMOVE | START\n"); 
-  /*
-  struct inode *curr_inode = filesys_open_inode (file);
-  struct list_elem *el;
-
-  //printf ("REMOVE | END\n");
-  
-  if (curr_inode != NULL && inode_is_dir (curr_inode))
-  {
-      for (el = list_begin (&file_list); el != list_end (&file_list); el = list_next (el))
-      {
-	  struct file_fd *file_fd = list_entry (el, struct file_fd, fd_elem);
-	  if (inode_get_inumber (file_get_inode (file_fd->file)) == inode_get_inumber (curr_inode))
-	  {
-	      printf ("EXIST\n");
-	      return false;
-	  }
-      }
-  }
-  
-  inode_close (curr_inode);
-  */
-
   return filesys_remove (file);
 }
 
+/* Open directory or file with name FILE
+ * Returns its file descriptor, -1 on failure
+ * Makes file descriptor structure
+ * Fails if directory or file with name FILE doesn't exist
+ * or internal memory allocation fails*/
 static int
 open (const char *file)
 {
@@ -330,31 +308,39 @@ open (const char *file)
   if(file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
     exit (-1);
 
+  /* set directory and file */
   struct dir* dir_ = NULL;
-  struct file* file_ = filesys_open (file);
-  bool is_dir = false;
+  struct file* file_ = NULL;
+  struct inode* inode_ = filesys_open_inode (file);
+  bool is_dir;
 
-  if (inode_is_dir (file_get_inode (file_)))
+  /* according to inode info, open dir struct or file*/
+  if (inode_is_dir (inode_))
   {     
-      dir_ = dir_open (file_get_inode (file_));
+      dir_ = dir_open(inode_);
       is_dir = true;
   }
-
-  if (file_ == NULL) 
+  else{
+      file_ = file_open(inode_);
+      is_dir = false;
+  }
+  if ((file_ == NULL) && (dir_ == NULL))
       goto done;
 
+  /* allocate file_fd */
   struct file_fd* fd_ = (struct file_fd*) malloc (sizeof (struct file_fd));
   if (fd_ == NULL)
     goto done;
 
+  /* save file_fd and push to list */
   fd_->file = file_;
   fd_->dir = dir_;
   fd_->is_dir = is_dir;
   fd_->fd = get_fd();
   list_push_back (&file_list, &fd_->fd_elem);
   list_push_back (&thread_current()->open_file, &fd_->fd_thread);
-  ret = fd_->fd; 
-  //printf("OPEN: opened |%s|: fd %d\n", file, ret);
+  ret = fd_->fd;
+
 done:
   return ret;
 }
@@ -415,10 +401,8 @@ read (int fd, void *buffer, unsigned size)
 	ret = file_read (file_fd->file, buffer, size);
 	goto done;
       }
-
     }
   }
-
 
 done:
   return ret;
@@ -510,9 +494,11 @@ tell (int fd)
   PANIC("no such file");
 }
 
+/* Close file or dir struct of file discriptor FD */
 static void
 close (int fd)
 {
+  /* find file descriptor structure */
   struct file_fd* fd_ = NULL;
   struct thread* curr = thread_current();
   struct list_elem* el;
@@ -530,11 +516,12 @@ close (int fd)
   if (fd_ == NULL) 
     exit (-1);
 
+  /* remove from list, close, free */
   list_remove (&fd_->fd_elem);
   list_remove (&fd_->fd_thread);
   file_close (fd_->file);
+  dir_close (fd_->dir);
   free (fd_);
-
 }
 
 static int
@@ -545,22 +532,27 @@ get_fd (void)
   return current_fd - 1;
 }
 
+/* Closefile or dir struct that has list_elem EL_ */
 void close_file (struct list_elem* el_)
 {
   ASSERT (el_ != NULL);
 
+  /* get file descriptor structure */
   struct file_fd* f_fd = NULL;
   f_fd = list_entry (el_, struct file_fd, fd_thread);
 
+  /* remove from list, close, free*/
   list_remove (&f_fd->fd_elem);
   file_close (f_fd->file);
   dir_close (f_fd->dir);
   free (f_fd);
 }
 
+/* Change directory of current process to DIR 
+ * return true if successful, false on failure
+ * failure on internal memory problem or unexisting DIR*/
 static bool chdir (const char *dir)
 {
-  //printf("CHDIR: |%s|\n", dir);
   /* set strings: add {dummy directory}, so that get_dir regards given dir as directory to return and {added dummy directory} as file that exists in returned directory */
   size_t dirlen = strlen(dir);
   char *copy = (char*)calloc(1, dirlen + 3);
@@ -574,69 +566,70 @@ static bool chdir (const char *dir)
   /* get directory, close current process directory, set new directory */
   struct dir *directory = get_dir(copy);
   if (!directory){
-    //printf("CHDIR: directory does not exist\n");
     return false;
   }
   dir_close(thread_current()->dir);
   thread_current()->dir = directory;
-  //printf ("directory %p, %d\n", directory, inode_get_inumber (dir_get_inode (directory)));
   free(copy);
   return true;
 }
 
+/* Create directory DIR
+ * Return true if successful, false on failure
+ * Directory upper to the directory that is to be created must exist
+ * example: a/b/c fails if a/b does not exist*/
 static bool mkdir (const char *dir)
 {
-  //printf("MKDIR: |%s|\n", dir);
   if (!dir)
     return false;
   return filesys_create_dir(dir, 0);
 }
 
+/* Read file or directory from directory given as FD
+ * read file or direcctory name on NAME
+ * return true if file or dir exists, false if not*/
 static bool readdir (int fd, char *name)
 {
+  /* Get file descriptor structure */
   struct file_fd *f_fd = find_fd(fd);
   if (!f_fd){
-    //printf("READDIR: invalid fd\n");
     return false;
   }
   
-  //struct dir *dir = dir_reopen (f_fd->dir);
+  /* Get directory structure */
   struct dir *dir = f_fd->dir;
-  //printf ("dir: %p, inode: %d\n", dir, inode_get_inumber (dir_get_inode (dir)));
   if (!dir){
-    //printf("READDIR: not directoy\n");
     return false;
   }
-  bool success = dir_readdir(dir, name);
-  //printf("READDIR: fd %d name |%s| success %d\n", fd, name, success);
-  //dir_close(dir);
-  return success;
+  /* Read from directory */
+  return dir_readdir(dir, name);
 }
 
+/* If fd is directory return true
+ * If fd is not directory return false
+ * If fd is wrong descriptor asserts */
 static bool isdir (int fd)
 {
-  bool success = false;
-  //printf("ISDIR: is %d dir?\n", fd);
-
   struct file_fd *f_fd = find_fd (fd);
-
-  if (f_fd == NULL)
-      return false;
+  //ASSERT (f_fd != NULL); 
 
   return f_fd->is_dir;
 }
 
+/* Return inode number of inode of dir struct or file of file descriptor */
 static int inumber (int fd)
 {
-  //printf("INUMBER: sector no of inode associated with fd %d\n", fd);
   struct file_fd  *f_fd = find_fd (fd);
 
   if (f_fd == NULL)
       return -1;
 
+  if (f_fd->is_dir)
+    return inode_get_inumber (dir_get_inode (f_fd->dir));
   return inode_get_inumber (file_get_inode (f_fd->file));
 }
 
+/* find file descriptor structure with file descriptor */
 static struct file_fd *find_fd (int fd)
 {
   struct list_elem *e;
