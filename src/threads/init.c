@@ -112,10 +112,9 @@ main (void)
 
 #ifdef FILESYS
   /* team10 impl */
-  init_cache ();
-
   /* Initialize file system. */
   disk_init ();
+  //init_cache ();
   filesys_init (format_filesys);
 
 #endif

@@ -314,7 +314,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     /* Number of bytes to actually copy out of this sector. */
     int chunk_size = size < min_left ? size : min_left;
     if (chunk_size <= 0)
-      break;
+	break;
 
     /* read using a buffer cache */
     read_cache (sector_idx, buffer + bytes_read, chunk_size, sector_ofs);
@@ -324,6 +324,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     offset += chunk_size;
     bytes_read += chunk_size;
   }
+
   free (bounce);
   //printf ("INODE_READ_AT END\n");
   return bytes_read;

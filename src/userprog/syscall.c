@@ -325,7 +325,6 @@ remove (const char *file)
 static int
 open (const char *file)
 {
-  //printf("OPEN: |%s|\n", file);
   int ret = -1; 
 
   if(file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
@@ -341,9 +340,8 @@ open (const char *file)
       is_dir = true;
   }
 
-  if (file_ == NULL) {
+  if (file_ == NULL) 
       goto done;
-    }
 
   struct file_fd* fd_ = (struct file_fd*) malloc (sizeof (struct file_fd));
   if (fd_ == NULL)
