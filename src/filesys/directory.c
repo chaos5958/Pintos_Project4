@@ -232,19 +232,15 @@ bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
-  //printf("DIR_READDIR: pos %d\n", dir->pos); 
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
   {
     dir->pos += sizeof e;
-    //printf ("%dir pos %zu\n", dir->pos);
     if (e.in_use)
     {
       strlcpy (name, e.name, NAME_MAX + 1);
-      //printf("DIR_READDIR: name |%s|\n", name);
       return true;
     } 
   }
-  //printf ("dir pos %zu\n", dir->pos);
   return false;
 }
 

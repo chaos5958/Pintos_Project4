@@ -8,6 +8,7 @@
 #include "filesys/directory.h"
 #include "devices/disk.h"
 #include "threads/malloc.h"
+#include "filesys/cache.h"
 
 #define NAME_LEN_MAX 196
 
@@ -43,7 +44,7 @@ filesys_done (void)
   cache_to_disk (); 
   free_map_close ();
 }
-
+
 /* Creates a file named NAME with the given INITIAL_SIZE.
    Returns true if successful, false otherwise.
    Fails if a file named NAME already exists,
@@ -57,8 +58,7 @@ filesys_create (const char *name, off_t initial_size)
 
   disk_sector_t inode_sector = 0;
   struct dir *dir = get_dir (name);
-    //char *fname = get_name (name);
-    char *fname = get_name (copy);
+  char *fname = get_name (copy);
   bool success = false;
   if (strcmp(fname, ".") && strcmp(fname, ".."))
       success = (dir != NULL
@@ -94,65 +94,39 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
-  //printf ("FILESYS_REMOVE: START\n");
-   
-  /* 
-  struct dir *dir = get_dir(name);
-  char *fname = get_name (name);
-  bool success = false;
-  if (!strcmp(fname, "."))
-  {
-  }
-
-    //printf("FILESYS_REMOVE: go to parent and remove this directory\n");
-  else if (!strcmp(fname, ".."))
-  {
-    //printf("FILESYS_REMOVE: go to grandparent and remove parent directory\n");
-  }
-  else
-  {
-      if (inode_is_dir (inode))
-      {
-	  dir_rm = dir_open (inode);
-	  if (!dir_readdir (dir_rm, temp))
-	  {
-	      //printf ("ELSE FNAME:  %s\n", fname);
-	      success = ((dir != NULL) && dir_remove (dir, fname));
-	  } 
-      }
-    success = ((dir != NULL) && dir_remove (dir, fname));
-  dir_close (dir); 
-
-  //printf ("FILESYS_REMOVE: END\n");
-  return success;
-  */
-  
   if (strlen (name) == 0)
       return false;
 
+  /* set and copy character NAME */
   char *name_ = (char *) malloc (strlen (name) + 1);
   memcpy (name_, name, strlen (name) + 1);
 
-  char temp[NAME_MAX + 1];
-  struct dir *dir = NULL;
-  struct dir *dir_rm = NULL;
-  bool success = false;
-  struct inode *inode;
+  /* set directory, inode, and other variables */
+  char temp[NAME_MAX + 1]; //to check subdirectory exists
+  struct dir *dir = NULL; //directory that object being removed is located
+  struct dir *dir_rm = NULL; //directory that is being removed(unused when removing file)
+  bool success = false; //result
+  struct inode *inode; //to open additional directory in case 1, 2
   
+  /* get directory that file or directory to remove is located at
+   * and name of file or directory that is to be deleted*/
   dir = get_dir(name_);
   char *fname = get_name (name_);
 
-  //printf ("fname: %s\n", fname); 
   //case 1: a/b/NULL && / 
   if (fname == NULL)
   {
+      //get inode of /a from /a/b/NULL
       if ((inode = get_parentdir (dir_get_inode (dir))) == NULL)	  
 	  return success;
 
-      dir_rm = dir_open(inode);
+      //get directory struct of a and name b
+      dir_rm = dir;
+      dir = dir_open(inode);
       get_name_prev (name_);
    
-      if (!dir_readdir (dir, temp))
+      //if b empty, remove from /a
+      if (!dir_readdir (dir_rm, temp))
       {
 	  success = ((dir != NULL) && dir_remove (dir, name_));
       } 
@@ -161,35 +135,47 @@ filesys_remove (const char *name)
   //case 2: a/b/.
   else if (!strcmp (fname, "."))
   {
+      //get inode of a
       if ((inode = get_parentdir (dir_get_inode (dir))) == NULL)	  
 	  return success;
 
-      dir_rm = dir_open(inode);
+      //get directory struct of a and name b
+      dir_rm = dir;
+      dir = dir_open(inode);
       get_name_prev (name_);
+
+      //if b empty, remove from a
+      if (!dir_readdir (dir_rm, temp))
+      {
+  	  success = ((dir != NULL) && dir_remove (dir, name_));
+      }
   }
   //case 3: a/b/..
   else if (!strcmp (fname, ".."))
   {
+      //try to remove a, but b exists in directory a, so fails
       return success;
   }
 
   //case 4: a/b/c
   else
   {
-      //printf ("case 4\n");
+      //get inode of c
       dir_lookup(dir, fname, &inode);
+      //c is directory
       if (inode_is_dir (inode))
       {
+	  //open directory of c
 	  dir_rm = dir_open (inode);
+	  //if c empty, remove c from a/b
 	  if (!dir_readdir (dir_rm, temp))
 	  {
-	      //printf ("ELSE FNAME:  %s\n", fname);
 	      success = ((dir != NULL) && dir_remove (dir, fname));
 	  } 
       }
+      //c is file, remove c from a/b
       else
       {
-	  //printf ("file\n");
        	  success = ((dir != NULL) && dir_remove (dir, fname));
       }
       inode_close (inode);
@@ -199,10 +185,9 @@ filesys_remove (const char *name)
   dir_close (dir_rm);
   dir_close (dir); 
 
-  //printf ("end\n");
   return success; 
 }
-
+
 /* Formats the file system. */
 static void
 do_format (void)
@@ -215,19 +200,15 @@ do_format (void)
   printf ("done.\n");
 }
 
+/* Returns name of file or directory from full name of total directory and file
+ * for example, a/b/c -> c
+ *              a/b/ -> NULL
+ * (character ptr DIRNAME modified in this function)*/
 char *
 get_name (char *dirname)
 {
   if (strlen (dirname) == 0)
       return dirname;
-
-//  char *copy, *next, *name, *save_ptr;
-//  size_t dirnamelen = strlen (dirname) + 1;
-//  copy = (char *)calloc (1, dirnamelen);
-//  strlcpy (copy, dirname, dirnamelen);
-//
-//  next = strtok_r (copy, "/", &save_ptr);
-//  name = next;
 
   char *next, *name, *save_ptr;
 
@@ -239,122 +220,89 @@ get_name (char *dirname)
   return name;
 }
 
+/* Creates directory NAME with given INITIAL_SIZE
+ * Returns true on success, false on fail
+ * Fails if a directory named NAME already exists or internal memory allocation failsi
+ * (character ptr NAME unmodified in this function)*/
 bool filesys_create_dir (const char *name, off_t initial_size)
 {
     size_t namelen = strlen (name) + 1;
     char *copy = (char *) malloc (namelen);
     strlcpy (copy, name, namelen);
 
-
     disk_sector_t inode_sector = 0;
     struct dir *dir = get_dir (name);
-    //char *fname = get_name (name);
     char *fname = get_name (copy);
     bool success = false;
-    if (strcmp(fname, ".") && strcmp(fname, ".."))
+    if (strcmp(fname, ".") && strcmp(fname, ".."))//create child directory
 	success = (dir != NULL
 		&& free_map_allocate (1, &inode_sector)
 		&& inode_create (inode_sector, initial_size, true)
 		&& dir_add (dir, fname, inode_sector));
-
-    if (!success && inode_sector != 0)
+    if (!success && inode_sector != 0)//failure
 	free_map_release (inode_sector, 1);
-    dir_close (dir);
 
+    dir_close (dir);//close current directory
     free (copy);
     return success;
 }
 
+/* Opens directory structure DIR of given NAME
+ * Returns NULL pointer on failure
+ * Fails if no directory NAME exists, or if internal memory allocation fails
+ * (character pointer input NAME unmodified in this function)*/
 struct dir *filesys_open_dir (const char *name)
 {
     struct inode *inode = filesys_open_inode (name);
     return dir_open (inode);
 }
 
+/* Opens inode structure of given NAME or a null pointer on failure
+ * Fails if no file named NAME exists,
+ * or if an internal memory allocation fails.
+ * (character pointer input NAME unmodified in this function)*/
 struct inode *filesys_open_inode (const char *name)
 {
-  //printf ("FILESYS_OPEN_INODE START\n");
-  
-    size_t namelen = strlen (name) + 1;
-    char *copy = (char *) malloc (namelen);
-    strlcpy (copy, name, namelen);
-
+  size_t namelen = strlen (name) + 1;
+  char *copy = (char *) malloc (namelen);
+  strlcpy (copy, name, namelen);
   
   struct dir *dir = get_dir (name);
   struct inode *inode = NULL;
-  //char *fname = get_name (name);
   char *fname = get_name (copy);
-  //printf ("dir name: %s\n", name);
-  //printf ("name: %s\n", fname);
   if (dir != NULL){
     if (fname == NULL || !strcmp(fname, "."))
     {
-      //inode = dir_get_inode(dir);
       inode = inode_reopen (dir_get_inode(dir));
     }
-    else if (!strcmp(fname, ".."))
-    {
-     // printf("FILESYS_OPEN: open parent directory\n");
-    }
+    else if (!strcmp(fname, ".."));
     else
     {
       dir_lookup(dir, fname, &inode);
-      //dir_close (dir);
-      //inode_close (inode);
     }
   }
-  //printf ("FILESYS_OPEN_INODE END\n");
-  //dir_close (dir);
-  //if (fname != NULL)
-  //    free (fname);
   dir_close (dir);
   free (copy);
   return inode;
 }
 
-struct inode *filesys_open_inode_test (const char *name)
-{
-
-  //printf ("FILESYS_OPEN_INODE_TEST START\n");
-  struct dir *dir = get_dir (name);
-  struct inode *inode = NULL;
-  char *fname = get_name (name);
-  
-  //printf ("dir name: %s\n", name);
-  //printf ("fname: %s\n", fname);
-  if (dir != NULL){
-    if (fname == NULL || !strcmp(fname, "."))
-    {
-      inode = dir_get_inode(dir);
-    }
-    else if (!strcmp(fname, ".."))
-    {
-     // printf("FILESYS_OPEN: open parent directory\n");
-    }
-    else
-    {
-	//printf ("ELSE\n");
-      dir_lookup(dir, fname, &inode);
-      dir_close (dir);
-    }
-    //dir_close (dir);
-  }
-  //printf ("FILESYS_OPEN_INODE_TEST END\n");
-  //free (fname);
- // return NULL;
-  return inode;
-}
-
+/* get name of current directory of NAME
+ * for instance,
+ *   NAME a/b/c -> b
+ *   NAME a/b/ -> b 
+ * (character ptr NAME is modified in this function)*/
 static void get_name_prev (char *name)
 {
     size_t len = strlen (name);
 
+    /* delete character from end until '/' appears */
     while (name[len] == '/')
     {
 	name[len] = '\0';
 	len--;
     }
 
+    /* using get_name, get last subdirectory name of modified NAME */
     name[len] = '\0';
     name = get_name (name);
 }
