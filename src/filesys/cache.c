@@ -206,7 +206,7 @@ static cache_id evict_cache (void)
 
     for (i = 0; i < BUF_CACHE_SIZE; i++)
     {
-	if (!cache_arr[i].dirty && cache_arr[i].accessed)
+	if (cache_arr[i].dirty && !cache_arr[i].accessed)
 	{
 	    lock_acquire (&cache_arr[i].cache_lock);
 	    cache_clear (i);
@@ -218,7 +218,7 @@ static cache_id evict_cache (void)
 
     for (i = 0; i < BUF_CACHE_SIZE; i++)
     {
-	if (cache_arr[i].dirty && !cache_arr[i].accessed)
+	if (!cache_arr[i].dirty && cache_arr[i].accessed)
 	{
 	    lock_acquire (&cache_arr[i].cache_lock);
 	    disk_write (filesys_disk, cache_arr[i].pos, cache_arr[i].data);
