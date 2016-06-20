@@ -6,11 +6,6 @@
 #include "threads/malloc.h"
 #include "userprog/syscall.h"
 #include <stdio.h>
-//////more things to implement
-//////1. writer into the file perodically
-//////- using timer_sleep and thread
-//////2. read ahead
-//////- using thread
 
 #define BUF_WRITE_TICKS 100
 
@@ -57,23 +52,24 @@ void init_cache (void)
     disk_length = disk_size (disk_get (0, 1));
 }
 
+/* find a cache which pos is equal to the input */
 cache_id find_cache (disk_sector_t pos)
 {
     int i;
 
-    //lock_acquire (&cache_lock);
     for (i = 0; i < BUF_CACHE_SIZE; i++)
     {
 	if (cache_arr[i].pos == pos)
 	{
-	    //lock_release (&cache_lock);
 	    return i;
 	}
     }
-    //lock_release (&cache_lock);
     return -1;
 }
 
+/* 1. read a disk and load into a cache list
+ * 2. copy appropriate amount of cache into a buffer 
+ */
 void read_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
 {
     /* read head */
@@ -94,11 +90,12 @@ void read_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
     lock_acquire (&cache_lock);
     cache_id idx = find_cache (pos);
 
+    /* cannot in a cache list */
     if (idx == -1)
     {
+	/* cache list is not full */
 	if (cache_num < BUF_CACHE_SIZE)
 	{
-	    //lock_acquire (&cache_lock);
 	    cache_arr[cache_num].pos = pos;
 	    cache_arr[cache_num].dirty = false;
 	    disk_read (filesys_disk, pos, cache_arr[cache_num].data);
@@ -109,9 +106,9 @@ void read_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
 	    lock_release (&cache_lock);
 
 	}
+	/* cache list is full */
 	else
 	{
-	    //lock_acquire (&cache_lock);
 	    idx = evict_cache ();
 	    cache_arr[idx].pos = pos;
 	    cache_arr[idx].dirty = false;
@@ -123,26 +120,29 @@ void read_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
 
 	}
     }
+    /* it is already located in a cache list */
     else
     {	
 	lock_release (&cache_lock);
-	//lock_acquire (&cache_lock);
 	lock_acquire (&cache_arr[idx].cache_lock);
 	memcpy (buffer, cache_arr[idx].data + ofs, size);
 	cache_arr[idx].accessed = true;
 	lock_release (&cache_arr[idx].cache_lock);
-	//lock_release (&cache_lock);
     }
-    //printf ("READ_CACHE END\n");
 }
 
+/* 1. read a disk and load into a cache list
+ * 2. copy appropriate amount of buffer into a cache 
+ */
 void write_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
 {
     lock_acquire (&cache_lock);
     cache_id idx = find_cache (pos);
 
+    /* cannot find in a cache list */
     if (idx == -1)
     {
+	/* cache list is not full */
 	if (cache_num < BUF_CACHE_SIZE)
 	{
 	    //lock_acquire (&cache_lock);
@@ -158,6 +158,7 @@ void write_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
 	    lock_release (&cache_lock);
 
 	}
+	/* cache list is full */
 	else
 	{
 	    //lock_acquire (&cache_lock);
@@ -174,18 +175,18 @@ void write_cache (disk_sector_t pos, void *buffer, off_t size, off_t ofs)
 	}
 
     }
+    /* it is already located in a cache list */
     else
     {
 	lock_release (&cache_lock);
-	//lock_acquire (&cache_lock);
 	lock_acquire (&cache_arr[idx].cache_lock);
 	memcpy (cache_arr[idx].data + ofs, buffer, size); 
 	cache_arr[idx].dirty = true;
 	lock_release (&cache_arr[idx].cache_lock);
-	//lock_release (&cache_lock);
     }
 }
 
+/* evict a cache in a cache list by the clock algorithm */
 static cache_id evict_cache (void)
 {
     ASSERT (cache_num == BUF_CACHE_SIZE);
@@ -197,7 +198,6 @@ static cache_id evict_cache (void)
 	if (!cache_arr[i].dirty && !cache_arr[i].accessed)
 	{
 	    lock_acquire (&cache_arr[i].cache_lock);
-	    //memset (&cache_arr[i], 0, sizeof (struct cache) - sizeof (struct lock));
 	    cache_clear (i);
 	    lock_release (&cache_arr[i].cache_lock);
 	    return i;
@@ -209,7 +209,6 @@ static cache_id evict_cache (void)
 	if (!cache_arr[i].dirty && cache_arr[i].accessed)
 	{
 	    lock_acquire (&cache_arr[i].cache_lock);
-	    //memset (&cache_arr[i], 0, sizeof (struct cache));
 	    cache_clear (i);
 	    lock_release (&cache_arr[i].cache_lock);
 	    return i;
@@ -223,7 +222,6 @@ static cache_id evict_cache (void)
 	{
 	    lock_acquire (&cache_arr[i].cache_lock);
 	    disk_write (filesys_disk, cache_arr[i].pos, cache_arr[i].data);
-	    //memset (&cache_arr[i], 0, sizeof (struct cache));
 	    cache_clear (i);
 	    lock_release (&cache_arr[i].cache_lock);
 	    return i;
@@ -237,7 +235,6 @@ static cache_id evict_cache (void)
 	{
 	    lock_acquire (&cache_arr[i].cache_lock);
 	    disk_write (filesys_disk, cache_arr[i].pos, cache_arr[i].data);
-	    //memset (&cache_arr[i], 0, sizeof (struct cache));
 	    cache_clear (i);
 	    lock_release (&cache_arr[i].cache_lock);
 	    return i;
@@ -247,6 +244,7 @@ static cache_id evict_cache (void)
     return -1;
 }
 
+/* clear a cache */
 static void cache_clear (cache_id idx)
 {
     memset (&cache_arr[idx].data, 0, sizeof cache_arr[idx].data);
@@ -255,6 +253,9 @@ static void cache_clear (cache_id idx)
     cache_arr[idx].dirty = false;
 }
 
+/* 1. write all dirty cache into disk 
+ * 2. set all cache accessed false 
+ */
 void cache_to_disk (void)
 {
     int i;
@@ -263,6 +264,7 @@ void cache_to_disk (void)
 
     for (i = 0; i < cache_num ; i++)
     {
+	cache_arr[i].accessed = false;
 	if (cache_arr[i].dirty)
 	    disk_write (filesys_disk, cache_arr[i].pos, cache_arr[i].data);
     }
@@ -270,7 +272,7 @@ void cache_to_disk (void)
     lock_release (&cache_lock);
 }
 
-
+/* read ahead function using a condition variable (similar to the producer part in the lecture */
 void thread_read_ahead (void *aux UNUSED)
 {
     while (true)
@@ -317,6 +319,7 @@ void thread_read_ahead (void *aux UNUSED)
     }
 }
 
+/* write priodically  */
 static void periodic_write (void *aux UNUSED)
 {
     while (true)
