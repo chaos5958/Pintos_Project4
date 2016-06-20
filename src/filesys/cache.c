@@ -209,6 +209,7 @@ static cache_id evict_cache (void)
 	if (cache_arr[i].dirty && !cache_arr[i].accessed)
 	{
 	    lock_acquire (&cache_arr[i].cache_lock);
+	    disk_write (filesys_disk, cache_arr[i].pos, cache_arr[i].data);
 	    cache_clear (i);
 	    lock_release (&cache_arr[i].cache_lock);
 	    return i;
@@ -221,7 +222,6 @@ static cache_id evict_cache (void)
 	if (!cache_arr[i].dirty && cache_arr[i].accessed)
 	{
 	    lock_acquire (&cache_arr[i].cache_lock);
-	    disk_write (filesys_disk, cache_arr[i].pos, cache_arr[i].data);
 	    cache_clear (i);
 	    lock_release (&cache_arr[i].cache_lock);
 	    return i;
