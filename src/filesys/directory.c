@@ -188,7 +188,6 @@ done:
 bool
 dir_remove (struct dir *dir, const char *name) 
 {
-  //printf ("DIR_REMOVE START\n");
   struct dir_entry e;
   struct inode *inode = NULL;
   bool success = false;
@@ -249,6 +248,9 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
   return false;
 }
 
+/* Get directory structure DIR that DIRFILE is located at 
+ * if DIRFILE is /a/b/c, return directory structure of /a/b
+ * if DIRFILE is /, return root*/
 struct dir *
 get_dir (const char *dirfile)
 {
@@ -267,7 +269,6 @@ get_dir (const char *dirfile)
   if (!sub)
     return NULL;
 
-  //printf ("copy: %s\n", copy);
   /* obtain topmost directory */
   if ((dir) && (copy[0] != '/'))
   {
@@ -279,41 +280,28 @@ get_dir (const char *dirfile)
   else
   {
     dir = dir_open_root();
-    //return NULL;
   }
  
   /* go to directories */
   subnext = strtok_r(copy, "/", &save_ptr);
-
-  /* result of parsing is NULL */
-  
-  if (!subnext)
+  if (!subnext) // result of parsing is NULL
       return dir;
   
   memcpy(sub, subnext, NAME_MAX + 1);
-  //printf ("subnext %s\n", subnext);
-  //printf ("copy %s\n", copy);
-  //while ((subnext = strtok_r(NULL, "/", &save_ptr))){
   while ((subnext = strtok_r (NULL, "/", &save_ptr)) != NULL)
-  //while (1)
   {
-    //printf ("IN WHILE\n");
-    if (!strcmp(sub, "."));
-    else if (!strcmp(sub, ".."))
+    if (!strcmp(sub, ".")); //stay at current directory
+    else if (!strcmp(sub, "..")) //go to parent directory
     {
-      //printf("  GET_DIR: go to parent directory\n");
       dir = dir_open (inode_reopen (get_parentdir (dir->inode)));
     }
-
-    else{
-	//printf ("sub %s\n", sub);
+    else{ //lookup directory, get inode for child, open child directory
 	if (!dir_lookup(dir, sub, &inode)){
-	    //printf ("lookup fail\n");
 	    dir_close(dir);
 	    free(sub);
 	    return NULL;
 	}
-	dir_close(dir);
+	dir_close(dir); //close current directory
 	dir = dir_open(inode);
     }
 
@@ -323,4 +311,3 @@ get_dir (const char *dirfile)
   free(sub);
   return dir;
 }
-
