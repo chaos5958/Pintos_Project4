@@ -153,7 +153,7 @@ struct thread
 
 #ifdef FILESYS
     struct dir *dir;
-    struct list dir_thread;
+    //struct list dir_thread;
     bool dir_removed;
 #endif
     /* Owned by thread.c. */

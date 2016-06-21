@@ -246,7 +246,8 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 
 /* Get directory structure DIR that DIRFILE is located at 
  * if DIRFILE is /a/b/c, return directory structure of /a/b
- * if DIRFILE is /, return root*/
+ * if DIRFILE is /, return root
+ * (char ptr input DIRFILE unmodified in this function)*/
 struct dir *
 get_dir (const char *dirfile)
 {

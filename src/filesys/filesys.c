@@ -52,9 +52,9 @@ filesys_done (void)
 bool
 filesys_create (const char *name, off_t initial_size)
 {
-    size_t namelen = strlen (name) + 1;
-    char *copy = (char *) malloc (namelen);
-    strlcpy (copy, name, namelen);
+  size_t namelen = strlen (name) + 1;
+  char *copy = (char *) malloc (namelen);
+  strlcpy (copy, name, namelen);
 
   disk_sector_t inode_sector = 0;
   struct dir *dir = get_dir (name);
@@ -125,7 +125,7 @@ filesys_remove (const char *name)
       dir = dir_open(inode);
       get_name_prev (name_);
    
-      //if b empty, remove from /a
+      //if b empty, remove from a
       if (!dir_readdir (dir_rm, temp))
       {
 	  success = ((dir != NULL) && dir_remove (dir, name_));

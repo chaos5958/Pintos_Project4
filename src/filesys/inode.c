@@ -43,7 +43,7 @@ struct inode_disk
     off_t indirect_idx;			/*number of sectors by indirect blocks */
     off_t double_indirect_idx;		/*number of sectors by double indirect blocks */
     unsigned magic;
-    bool is_dir;
+    bool is_dir;			/*TRUE if inode is directory, FALSE if file*/
     disk_sector_t directory [TOTAL_PTR_NUM]; /*an array which contains direct, indirect, double indirect blocks similar to a imbalanced tree*/
     uint32_t unused[UNUSED_NUM];
 };

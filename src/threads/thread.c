@@ -673,7 +673,6 @@ init_thread (struct thread *t, const char *name, int priority)
   //team10: proj 4
 #ifdef FILESYS
   t->dir = NULL;
-  list_init (&(t->dir_thread));
   t->dir_removed = false;
 #endif
 }
