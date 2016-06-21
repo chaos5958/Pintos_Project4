@@ -292,6 +292,24 @@ remove (const char *file)
   if (file == NULL || !is_user_vaddr (file) || !pagedir_get_page (thread_current ()->pagedir, file))
     exit(-1);
 
+  struct inode *cur_inode = filesys_open_inode(file);
+  struct list_elem *el;
+  struct file_fd *file_fd;
+  struct inode *inode;
+  if (cur_inode){
+    for (el = list_begin (&file_list); el != list_end (&file_list); el = list_next(el)){
+      file_fd = list_entry (el, struct file_fd, fd_elem);
+      if (file_fd->is_dir)
+	inode = dir_get_inode(file_fd->dir);
+      else
+	continue;
+      if (inode_get_inumber (inode) == inode_get_inumber(cur_inode)){
+	return false;
+      }
+    }
+  }
+  inode_close(cur_inode);
+
   return filesys_remove (file);
 }
 
