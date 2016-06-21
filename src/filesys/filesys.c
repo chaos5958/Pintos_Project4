@@ -17,6 +17,7 @@ struct disk *filesys_disk;
 
 static void do_format (void);
 static void get_name_prev (char *name);
+struct lock create_lock;
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
@@ -32,6 +33,7 @@ filesys_init (bool format)
   init_cache ();
   if (format) 
     do_format ();
+  lock_init(&create_lock);
 
   free_map_open ();
 }
@@ -52,14 +54,15 @@ filesys_done (void)
 bool
 filesys_create (const char *name, off_t initial_size)
 {
-    size_t namelen = strlen (name) + 1;
-    char *copy = (char *) malloc (namelen);
-    strlcpy (copy, name, namelen);
+  size_t namelen = strlen (name) + 1;
+  char *copy = (char *) malloc (namelen);
+  strlcpy (copy, name, namelen);
 
   disk_sector_t inode_sector = 0;
   struct dir *dir = get_dir (name);
   char *fname = get_name (copy);
   bool success = false;
+  lock_acquire(&create_lock);
   if (strcmp(fname, ".") && strcmp(fname, ".."))
       success = (dir != NULL
 	&& free_map_allocate (1, &inode_sector)
@@ -69,6 +72,7 @@ filesys_create (const char *name, off_t initial_size)
   if (!success && inode_sector != 0)
     free_map_release (inode_sector, 1);
   dir_close (dir);
+  lock_release(&create_lock);
 
   free (copy);
   return success;
@@ -125,10 +129,12 @@ filesys_remove (const char *name)
       dir = dir_open(inode);
       get_name_prev (name_);
    
-      //if b empty, remove from /a
+      //if b empty, remove from a
       if (!dir_readdir (dir_rm, temp))
       {
+	  lock_acquire(&create_lock);
 	  success = ((dir != NULL) && dir_remove (dir, name_));
+	  lock_release(&create_lock);
       } 
   }
 
@@ -147,7 +153,9 @@ filesys_remove (const char *name)
       //if b empty, remove from a
       if (!dir_readdir (dir_rm, temp))
       {
+	  lock_acquire(&create_lock);
   	  success = ((dir != NULL) && dir_remove (dir, name_));
+	  lock_release(&create_lock);
       }
   }
   //case 3: a/b/..
@@ -170,13 +178,17 @@ filesys_remove (const char *name)
 	  //if c empty, remove c from a/b
 	  if (!dir_readdir (dir_rm, temp))
 	  {
+	      lock_acquire(&create_lock);
 	      success = ((dir != NULL) && dir_remove (dir, fname));
+	      lock_release(&create_lock);
 	  } 
       }
       //c is file, remove c from a/b
       else
       {
+	  lock_acquire(&create_lock);
        	  success = ((dir != NULL) && dir_remove (dir, fname));
+	  lock_release(&create_lock);
       }
       inode_close (inode);
   }

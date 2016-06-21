@@ -205,7 +205,7 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
-  
+  /* If deleting process dir, check dir_removed to true */
   if (inode_get_inumber (thread_current ()->dir->inode) == inode_get_inumber (inode))
   {
       thread_current ()->dir_removed = true;
@@ -246,7 +246,8 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 
 /* Get directory structure DIR that DIRFILE is located at 
  * if DIRFILE is /a/b/c, return directory structure of /a/b
- * if DIRFILE is /, return root*/
+ * if DIRFILE is /, return root
+ * (char ptr input DIRFILE unmodified in this function)*/
 struct dir *
 get_dir (const char *dirfile)
 {
