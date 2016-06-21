@@ -26,14 +26,6 @@
 /* for debugging */
 #define OLD 0
 
-//struct inode_disk
-//  {
-//    disk_sector_t start;                /* First data sector. */
-//    off_t length;                       /* File size in bytes. */
-//    unsigned magic;                     /* Magic number. */
-//    uint32_t unused[125];               /* Not used. */
-//  };
-
 /* On-disk inode.
    Must be exactly DISK_SECTOR_SIZE bytes long. */
 struct inode_disk
@@ -280,8 +272,6 @@ inode_remove (struct inode *inode)
 off_t
 inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset) 
 {
-  //printf("INDOE_READ_AT START\n");
-  //printf ("INODE_READ_AT SECTOR: %d\n", inode->sector);
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
@@ -289,13 +279,11 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   /* offest is bigger than file length, read nothing */
   if (inode->readable_length <= offset)
   {
-    //printf ("INODE_READ_AT | OFFSET\n");
     return 0;
   }
 
   if (inode->readable_length <= offset + size)
   {
-      //printf ("INODE_READ_AT | OFFSET + SIZE\n");
       size -= (offset + size - inode->readable_length);
   }
 
@@ -326,7 +314,6 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   }
 
   free (bounce);
-  //printf ("INODE_READ_AT END\n");
   return bytes_read;
 }
 
@@ -342,7 +329,6 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
   uint8_t *bounce = NULL;
-  //printf("  INODE_WRITE_AT: INODE %d DENY %d\n", inode, inode->deny_write_cnt);
   if (inode->deny_write_cnt)
     return 0;
 
@@ -391,7 +377,6 @@ void
 inode_deny_write (struct inode *inode) 
 {
   inode->deny_write_cnt++;
-  //printf("    INODE_DENY_WRITE: INODE %d DENY %d\n", inode, inode->deny_write_cnt);
   ASSERT (inode->deny_write_cnt <= inode->open_cnt);
 }
 
@@ -404,7 +389,6 @@ inode_allow_write (struct inode *inode)
   ASSERT (inode->deny_write_cnt > 0);
   ASSERT (inode->deny_write_cnt <= inode->open_cnt);
   inode->deny_write_cnt--;
-  //printf("    INODE_ALLOW_WRITE: INODE %d DENY %d\n", inode, inode->deny_write_cnt);
 }
 
 /* Returns the length, in bytes, of INODE's data. */
@@ -418,7 +402,6 @@ int
 inode_cnt (const struct inode *inode)
 {
   return inode->deny_write_cnt;
-  //return inode->open_cnt;
 }
 
 /* allocate sectors amount memory */
@@ -644,10 +627,6 @@ static off_t expand_file (struct inode *inode, off_t length)
     /* expand using direct blocks */
     if (disk_inode->direct_idx < DIRECT_PTR_NUM)
     {
-      //printf ("direct block\n");
-      	//printf ("direct block\n");
-	//printf ("direct_idx %zu,  %zu\n", disk_inode->direct_idx, INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE);
-
       if (free_map_allocate (1, &disk_inode->directory[disk_inode->direct_idx]))
       {
 	disk_write (filesys_disk, disk_inode->directory[disk_inode->direct_idx], zeros);
@@ -661,8 +640,6 @@ static off_t expand_file (struct inode *inode, off_t length)
     /* expand using indirect blocks */
     else if (disk_inode->indirect_idx < INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE)
     {
-	//printf ("indirect block\n");
-	//printf ("indirect_idx %zu,  %zu\n", disk_inode->indirect_idx, INDIRECT_PTR_NUM * INDIRECT_BLOCK_SIZE);
       off_t block_idx = (disk_inode->indirect_idx - 1) / INDIRECT_BLOCK_SIZE;
       off_t inblock_idx = (disk_inode->indirect_idx - 1) % INDIRECT_BLOCK_SIZE;
 
@@ -773,7 +750,6 @@ static off_t expand_file (struct inode *inode, off_t length)
   return length;
 
 error:
-  //printf ("ret: %zu\n", length - sectors * DISK_SECTOR_SIZE);
   return length - sectors * DISK_SECTOR_SIZE;
 }
 

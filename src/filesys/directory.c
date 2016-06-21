@@ -205,7 +205,7 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
-  
+  /* If deleting process dir, check dir_removed to true */
   if (inode_get_inumber (thread_current ()->dir->inode) == inode_get_inumber (inode))
   {
       thread_current ()->dir_removed = true;
